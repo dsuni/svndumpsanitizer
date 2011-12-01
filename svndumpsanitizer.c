@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 0.7.0, released 14 Nov 2011
+	svndumpsanitizer version 0.7.1, released 1 Dec 2011
 
 	Copyright 2011 Daniel Suni
 
@@ -549,7 +549,7 @@ int main(int argc, char **argv) {
 			strcpy(temp_str, no_longer_relevant[i]);
 			strcat(temp_str, "/");
 			for (j = 0; j < no_len; ++j) {
-				if (i != j && starts_with(no_longer_relevant[j], temp_str)) {
+				if (i != j && no_longer_relevant[j] && starts_with(no_longer_relevant[j], temp_str)) {
 					free(no_longer_relevant[j]);
 					no_longer_relevant[j] = NULL;
 				}
