@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 0.7.1, released 1 Dec 2011
+	svndumpsanitizer version 0.8.0, released 24 Dec 2011 (Merry Christmas!)
 
 	Copyright 2011 Daniel Suni
 
@@ -47,6 +47,7 @@ typedef struct {
 typedef struct {
 	node *nodes;
 	int size;
+	int number; // Used only if the revision number is changed due to empty revisions being dropped.
 } revision;
 
 void exit_with_error(char *message, int exit_code) {
@@ -65,7 +66,15 @@ void show_help_and_exit() {
 	printf("\t\tYou must specify at least one path to include OR at least one path to exclude\n");
 	printf("\t\tYou may not specify includes and excludes at the same time.\n\n");
 	printf("\t\tPATHS are space separated paths as they appear in the svn repository\n");
-	printf("\t\twithout leading or trailing slashes. E.g. \"-n trunk/foo/bar branches/baz\"\n");
+	printf("\t\twithout leading or trailing slashes. E.g. \"-n trunk/foo/bar branches/baz\".\n\n");
+	printf("\t\tThe only exception to this are directories in the repository root that start with a\n");
+	printf("\t\thyphen. In order to not have this hyphen misinterpreted as a command, it must be\n");
+	printf("\t\tescaped using a slash. E.g. \"-n /--foobar branches/baz\". Please notice that only\n");
+	printf("\t\ta leading hyphen should be escaped, and only for the repository root.\n\n");
+	printf("\t-d, --drop-empty\n");
+	printf("\t\tAny revision that after sanitizing, contains no actions will be dropped altogether.\n");
+	printf("\t\tThe remaining revisions will be renumbered. You will lose the commit messages for\n");
+	printf("\t\tthe dropped revisions.\n");
 	exit(0);
 }
 
@@ -83,19 +92,22 @@ int starts_with(char *a, char *b) {
 
 int main(int argc, char **argv) {
 	// Misc temporary variables
-	int i, j, k, l, ch, want_by_default, should_do;
+	int i, j, k, l, ch, want_by_default, should_do, new_number, empty, temp_int;
 	off_t offset,con_len;
 	time_t rawtime;
 	struct tm *ptm;
 	char *temp_str = NULL;
 	char *temp_str2 = NULL;
 	char *tok_str = NULL;
+	int steps = 6;
+	int cur_step = 1;
 
 	// Variables to help analyze user input 
 	int in = 0;
 	int out = 0;
 	int incl = 0;
 	int excl = 0;
+	int drop = 0;
 
 	// Variables related to files and paths
 	FILE *infile = NULL;
@@ -125,6 +137,7 @@ int main(int argc, char **argv) {
 	int toggle = 0;
 
 	// Variables related to revisions and nodes
+	int drop_empty = 0;
 	int rev_len = -1;
 	int rev_max = 10;
 	int rev = -1;
@@ -150,8 +163,13 @@ int main(int argc, char **argv) {
 			out = (!strcmp(argv[i], "--outfile") || !strcmp(argv[i], "-o"));
 			incl = (!strcmp(argv[i], "--include") || !strcmp(argv[i], "-n"));
 			excl = (!strcmp(argv[i], "--exclude") || !strcmp(argv[i], "-e"));
-			if (!(in || out || incl || excl)) {
+			drop = (!strcmp(argv[i], "--drop-empty") || !strcmp(argv[i], "-d"));
+			if (!(in || out || incl || excl || drop)) {
 				exit_with_error(strcat(argv[i], " is not a valid parameter. Use -h for help."), 1);
+			}
+			else if (drop) {
+				drop_empty = 1;
+				steps = 7;
 			}
 		}
 		else if (in && infile == NULL) {
@@ -170,14 +188,26 @@ int main(int argc, char **argv) {
 			if ((include = (char**)realloc(include, (inc_len + 1) * sizeof(char*))) == NULL) {
 				exit_with_error("realloc failed", 2);
 			}
-			include[inc_len] = argv[i];
+			// Allow the user to escape a directory in the repository root, that starts with a
+			// hyphen, using a slash.
+			if (starts_with(argv[i], "/")) {
+				include[inc_len] = &argv[i][1];
+			}
+			else {
+				include[inc_len] = argv[i];
+			}
 			++inc_len;			
 		}
 		else if (excl) {
 			if ((exclude = (char**)realloc(exclude, (exc_len + 1) * sizeof(char*))) == NULL) {
 				exit_with_error("realloc failed", 2);
 			}
-			exclude[exc_len] = argv[i];
+			if (starts_with(argv[i], "/")) {
+				exclude[exc_len] = &argv[i][1];
+			}
+			else {
+				exclude[exc_len] = argv[i];
+			}
 			++exc_len;
 		}
 		else {
@@ -201,7 +231,8 @@ int main(int argc, char **argv) {
 		exit_with_error("You may not specify both includes and excludes", 1);
 	}
 	want_by_default = (include == NULL);
-	printf("Step 1/6: Reading the infile... ");
+	printf("Step %d/%d: Reading the infile... ", cur_step, steps);
+	++cur_step;
 
 	// Read the metadata from all nodes.
 	while ((ch = fgetc(infile)) != EOF) {
@@ -274,6 +305,7 @@ int main(int argc, char **argv) {
 				current_node = NULL;
 				revisions[rev_len].nodes = NULL;
 				revisions[rev_len].size = 0;
+				revisions[rev_len].number = -1;
 				nod_len = -1;
 			}
 			current_line[0] = '\0';
@@ -297,7 +329,8 @@ int main(int argc, char **argv) {
 	++rev_len;
 	current_line[0] = '\0';
 	cur_len = 0;
-	printf("OK\nStep 2/6: Removing unwanted nodes... ");
+	printf("OK\nStep %d/%d: Removing unwanted nodes... ", cur_step, steps);
+	++cur_step;
 
 	// Analyze the metadata in order to decide which nodes to keep.
 	// If the user specified excludes, mark nodes in the exclude paths as unwanted.
@@ -442,7 +475,8 @@ int main(int argc, char **argv) {
 			}
 		}
 	}
-	printf("OK\nStep 3/6: Bringing back necessary delete operations... ");
+	printf("OK\nStep %d/%d: Bringing back necessary delete operations... ", cur_step, steps);
+	++cur_step;
 
 	// Parse through the metadata again - this time bringing back any
 	// possible delete instructions for the nodes we were forced to keep
@@ -488,7 +522,8 @@ int main(int argc, char **argv) {
 			}
 		}
 	}
-	printf("OK\nStep 4/6: Identifying lingering unwanted nodes... ");
+	printf("OK\nStep %d/%d: Identifying lingering unwanted nodes... ", cur_step, steps);
+	++cur_step;
 
 	// Find paths which are not relevant as specified by the user, but still lingers
 	// due to dependency includes. (So that we can deal with them later.)
@@ -549,7 +584,7 @@ int main(int argc, char **argv) {
 			strcpy(temp_str, no_longer_relevant[i]);
 			strcat(temp_str, "/");
 			for (j = 0; j < no_len; ++j) {
-				if (i != j && no_longer_relevant[j] && starts_with(no_longer_relevant[j], temp_str)) {
+				if (i != j && no_longer_relevant[j] != NULL && starts_with(no_longer_relevant[j], temp_str)) {
 					free(no_longer_relevant[j]);
 					no_longer_relevant[j] = NULL;
 				}
@@ -557,7 +592,29 @@ int main(int argc, char **argv) {
 			free(temp_str);
 		}
 	}
-	printf("OK\nStep 5/6: Writing the outfile... ");
+
+	// Renumber the revisions if the empty ones are to be dropped
+	if (drop_empty) {
+		printf("OK\nStep %d/%d: Renumbering revisions... ", cur_step, steps);
+		++cur_step;
+		revisions[0].number = 0; // Revision 0 is special, and should never be dropped.
+		new_number = 1;
+		for (i = 1; i < rev_len; ++i) {
+			empty = 1;
+			for (j = 0; j < revisions[i].size; ++j) {
+				if (revisions[i].nodes[j].wanted) {
+					empty = 0;
+					break;
+				}
+			}
+			if (!empty) {
+				revisions[i].number = new_number;
+				++new_number;
+			}
+		}
+	}
+	printf("OK\nStep %d/%d: Writing the outfile... ", cur_step, steps);
+	++cur_step;
 
 	// Copy the infile to the outfile skipping the undesireable parts.
 	reading_node = 0;
@@ -568,6 +625,11 @@ int main(int argc, char **argv) {
 				if (strlen(current_line) == 0) {
 					reading_node = 0;
 					writing = 1;
+				}
+				else if (drop_empty && writing && starts_with(current_line, "Node-copyfrom-rev: ")) {
+					temp_int = atoi(&current_line[19]);
+					fprintf(outfile, "Node-copyfrom-rev: %d\n", revisions[temp_int].number);
+					toggle = 1;
 				}
 				else if (starts_with(current_line, "Content-length: ")) {
 					con_len = (off_t)atol(&current_line[16]);
@@ -593,6 +655,12 @@ int main(int argc, char **argv) {
 			else if (starts_with(current_line, "Revision-number: ")) {
 				++rev;
 				nod = -1;
+				writing = (!drop_empty || revisions[rev].number >= 0);
+				if (drop_empty && writing) {
+					temp_int = atoi(&current_line[17]);
+					fprintf(outfile, "Revision-number: %d\n", revisions[temp_int].number);
+					toggle = 1;
+				}
 			}
 			if (writing && !toggle) {
 				fprintf(outfile, "%s\n", current_line);
@@ -609,14 +677,20 @@ int main(int argc, char **argv) {
 			current_line[cur_len] = '\0';
 		}
 	}
-	printf("OK\nStep 6/6: Adding revision deleting surplus nodes... ");
-
+	printf("OK\nStep %d/%d: Adding revision deleting surplus nodes... ", cur_step, steps);
+	++cur_step;
 
 	// Now we deal with any surplus nodes by adding a revision that deletes them.
 	if (no_longer_relevant != NULL) {
 		time(&rawtime);
 		ptm = gmtime(&rawtime);
-		fprintf(outfile, "Revision-number: %d\n", rev_len);
+		if (drop_empty) {
+			temp_int = revisions[rev_len - 1].number + 1;
+		}
+		else {
+			temp_int = rev_len;
+		}
+		fprintf(outfile, "Revision-number: %d\n", temp_int);
 		fprintf(outfile, "Prop-content-length: 133\n");
 		fprintf(outfile, "Content-length: 133\n\n");
 		fprintf(outfile, "K 7\nsvn:log\nV 22\n");
