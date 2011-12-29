@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 0.8.0, released 24 Dec 2011 (Merry Christmas!)
+	svndumpsanitizer version 0.8.1, released 29 Dec 2011
 
 	Copyright 2011 Daniel Suni
 
@@ -232,6 +232,7 @@ int main(int argc, char **argv) {
 	}
 	want_by_default = (include == NULL);
 	printf("Step %d/%d: Reading the infile... ", cur_step, steps);
+	fflush(stdout);
 	++cur_step;
 
 	// Read the metadata from all nodes.
@@ -330,6 +331,7 @@ int main(int argc, char **argv) {
 	current_line[0] = '\0';
 	cur_len = 0;
 	printf("OK\nStep %d/%d: Removing unwanted nodes... ", cur_step, steps);
+	fflush(stdout);
 	++cur_step;
 
 	// Analyze the metadata in order to decide which nodes to keep.
@@ -476,6 +478,7 @@ int main(int argc, char **argv) {
 		}
 	}
 	printf("OK\nStep %d/%d: Bringing back necessary delete operations... ", cur_step, steps);
+	fflush(stdout);
 	++cur_step;
 
 	// Parse through the metadata again - this time bringing back any
@@ -523,6 +526,7 @@ int main(int argc, char **argv) {
 		}
 	}
 	printf("OK\nStep %d/%d: Identifying lingering unwanted nodes... ", cur_step, steps);
+	fflush(stdout);
 	++cur_step;
 
 	// Find paths which are not relevant as specified by the user, but still lingers
@@ -596,6 +600,7 @@ int main(int argc, char **argv) {
 	// Renumber the revisions if the empty ones are to be dropped
 	if (drop_empty) {
 		printf("OK\nStep %d/%d: Renumbering revisions... ", cur_step, steps);
+	fflush(stdout);
 		++cur_step;
 		revisions[0].number = 0; // Revision 0 is special, and should never be dropped.
 		new_number = 1;
@@ -614,6 +619,7 @@ int main(int argc, char **argv) {
 		}
 	}
 	printf("OK\nStep %d/%d: Writing the outfile... ", cur_step, steps);
+	fflush(stdout);
 	++cur_step;
 
 	// Copy the infile to the outfile skipping the undesireable parts.
@@ -628,6 +634,11 @@ int main(int argc, char **argv) {
 				}
 				else if (drop_empty && writing && starts_with(current_line, "Node-copyfrom-rev: ")) {
 					temp_int = atoi(&current_line[19]);
+					// It's possible for the copyfrom-rev argument to point to a revision that is being removed.
+					// If this is the case we change it to point to the first revision prior to it, that remains.
+					while (revisions[temp_int].number < 0) {
+						--temp_int;
+					}
 					fprintf(outfile, "Node-copyfrom-rev: %d\n", revisions[temp_int].number);
 					toggle = 1;
 				}
@@ -678,6 +689,7 @@ int main(int argc, char **argv) {
 		}
 	}
 	printf("OK\nStep %d/%d: Adding revision deleting surplus nodes... ", cur_step, steps);
+	fflush(stdout);
 	++cur_step;
 
 	// Now we deal with any surplus nodes by adding a revision that deletes them.
