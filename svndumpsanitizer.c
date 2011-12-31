@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 0.8.1, released 29 Dec 2011
+	svndumpsanitizer version 0.8.2, released 31 Dec 2011
 
 	Copyright 2011 Daniel Suni
 
@@ -28,7 +28,7 @@
 #define CHANGE 1
 #define DELETE 2
 #define REPLACE 3
-#define CONTENT_PADDING 2
+#define CONTENT_PADDING 1
 #define INCREMENT 10
 #define NEWLINE 10
 
@@ -101,6 +101,7 @@ int main(int argc, char **argv) {
 	char *tok_str = NULL;
 	int steps = 6;
 	int cur_step = 1;
+	int consequtive_newlines = 0;
 
 	// Variables to help analyze user input 
 	int in = 0;
@@ -640,6 +641,7 @@ int main(int argc, char **argv) {
 						--temp_int;
 					}
 					fprintf(outfile, "Node-copyfrom-rev: %d\n", revisions[temp_int].number);
+					consequtive_newlines = 0;
 					toggle = 1;
 				}
 				else if (starts_with(current_line, "Content-length: ")) {
@@ -670,11 +672,23 @@ int main(int argc, char **argv) {
 				if (drop_empty && writing) {
 					temp_int = atoi(&current_line[17]);
 					fprintf(outfile, "Revision-number: %d\n", revisions[temp_int].number);
+					consequtive_newlines = 0;
 					toggle = 1;
 				}
 			}
 			if (writing && !toggle) {
-				fprintf(outfile, "%s\n", current_line);
+				// If there are lots of nodes and/or revisions being dropped we prefer not to add the empty
+				// lines in between them. Adding them won't break the resulting dump file, but it looks ugly.
+				if (strlen(current_line) == 0) {
+					if (consequtive_newlines < 2) {
+						fputc(NEWLINE, outfile);
+						++consequtive_newlines;
+					}
+				}
+				else {
+					fprintf(outfile, "%s\n", current_line);
+					consequtive_newlines = 0;
+				}
 			}
 			else {
 				toggle = 0;
