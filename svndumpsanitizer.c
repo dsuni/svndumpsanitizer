@@ -1,7 +1,7 @@
 /*
-	svndumpsanitizer version 0.8.2, released 31 Dec 2011
+	svndumpsanitizer version 0.8.3, released 26 Jan 2012
 
-	Copyright 2011 Daniel Suni
+	Copyright 2011,2012 Daniel Suni
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -134,6 +134,7 @@ int main(int argc, char **argv) {
 		exit_with_error("calloc failed", 2);
 	}
 	int reading_node = 0;
+	int reading_rev = 0;
 	int writing = 1;
 	int toggle = 0;
 
@@ -625,6 +626,7 @@ int main(int argc, char **argv) {
 
 	// Copy the infile to the outfile skipping the undesireable parts.
 	reading_node = 0;
+	reading_rev = 0;
 	rewind(infile);
 	while ((ch = fgetc(infile)) != EOF) {
 		if (ch == NEWLINE) {
@@ -660,6 +662,25 @@ int main(int argc, char **argv) {
 					toggle = 1;
 				}
 			}
+			else if (reading_rev) {
+				// If we've hit the comment part, we write that blindly. Pruning the newlines would be dangerous
+				// here, since it's possible that someone has made a comment with 3 or more consequtive newlines.
+				if (writing && strcmp(current_line, "svn:log") == 0) {
+					cur_len = -1;
+					do {
+						++cur_len;
+						current_line[cur_len] = fgetc(infile);
+					} while (current_line[cur_len] != NEWLINE);
+					current_line[cur_len] = '\0';
+					fprintf(outfile, "svn:log\n%s\n", current_line);
+					con_len = (off_t)atol(&current_line[2]);
+					for (offset = 0; offset < con_len + CONTENT_PADDING; ++offset) {
+							fputc(fgetc(infile), outfile);
+					}
+					toggle = 1;
+					reading_rev = 0;
+				}
+			}
 			else if (starts_with(current_line, "Node-path: ")) {
 				reading_node = 1;
 				++nod;
@@ -673,6 +694,7 @@ int main(int argc, char **argv) {
 					temp_int = atoi(&current_line[17]);
 					fprintf(outfile, "Revision-number: %d\n", revisions[temp_int].number);
 					consequtive_newlines = 0;
+					reading_rev = 1;
 					toggle = 1;
 				}
 			}
@@ -711,7 +733,11 @@ int main(int argc, char **argv) {
 		time(&rawtime);
 		ptm = gmtime(&rawtime);
 		if (drop_empty) {
-			temp_int = revisions[rev_len - 1].number + 1;
+			i = 1;
+			do {
+				temp_int = revisions[rev_len - i].number + 1;
+				++i;
+			} while (temp_int == 0);
 		}
 		else {
 			temp_int = rev_len;
