@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 0.8.3, released 26 Jan 2012
+	svndumpsanitizer version 0.8.4, released 27 Jan 2012
 
 	Copyright 2011,2012 Daniel Suni
 
@@ -101,7 +101,6 @@ int main(int argc, char **argv) {
 	char *tok_str = NULL;
 	int steps = 6;
 	int cur_step = 1;
-	int consequtive_newlines = 0;
 
 	// Variables to help analyze user input 
 	int in = 0;
@@ -134,7 +133,6 @@ int main(int argc, char **argv) {
 		exit_with_error("calloc failed", 2);
 	}
 	int reading_node = 0;
-	int reading_rev = 0;
 	int writing = 1;
 	int toggle = 0;
 
@@ -626,7 +624,6 @@ int main(int argc, char **argv) {
 
 	// Copy the infile to the outfile skipping the undesireable parts.
 	reading_node = 0;
-	reading_rev = 0;
 	rewind(infile);
 	while ((ch = fgetc(infile)) != EOF) {
 		if (ch == NEWLINE) {
@@ -643,7 +640,6 @@ int main(int argc, char **argv) {
 						--temp_int;
 					}
 					fprintf(outfile, "Node-copyfrom-rev: %d\n", revisions[temp_int].number);
-					consequtive_newlines = 0;
 					toggle = 1;
 				}
 				else if (starts_with(current_line, "Content-length: ")) {
@@ -662,25 +658,6 @@ int main(int argc, char **argv) {
 					toggle = 1;
 				}
 			}
-			else if (reading_rev) {
-				// If we've hit the comment part, we write that blindly. Pruning the newlines would be dangerous
-				// here, since it's possible that someone has made a comment with 3 or more consequtive newlines.
-				if (writing && strcmp(current_line, "svn:log") == 0) {
-					cur_len = -1;
-					do {
-						++cur_len;
-						current_line[cur_len] = fgetc(infile);
-					} while (current_line[cur_len] != NEWLINE);
-					current_line[cur_len] = '\0';
-					fprintf(outfile, "svn:log\n%s\n", current_line);
-					con_len = (off_t)atol(&current_line[2]);
-					for (offset = 0; offset < con_len + CONTENT_PADDING; ++offset) {
-							fputc(fgetc(infile), outfile);
-					}
-					toggle = 1;
-					reading_rev = 0;
-				}
-			}
 			else if (starts_with(current_line, "Node-path: ")) {
 				reading_node = 1;
 				++nod;
@@ -693,24 +670,11 @@ int main(int argc, char **argv) {
 				if (drop_empty && writing) {
 					temp_int = atoi(&current_line[17]);
 					fprintf(outfile, "Revision-number: %d\n", revisions[temp_int].number);
-					consequtive_newlines = 0;
-					reading_rev = 1;
 					toggle = 1;
 				}
 			}
 			if (writing && !toggle) {
-				// If there are lots of nodes and/or revisions being dropped we prefer not to add the empty
-				// lines in between them. Adding them won't break the resulting dump file, but it looks ugly.
-				if (strlen(current_line) == 0) {
-					if (consequtive_newlines < 2) {
-						fputc(NEWLINE, outfile);
-						++consequtive_newlines;
-					}
-				}
-				else {
-					fprintf(outfile, "%s\n", current_line);
-					consequtive_newlines = 0;
-				}
+				fprintf(outfile, "%s\n", current_line);
 			}
 			else {
 				toggle = 0;
