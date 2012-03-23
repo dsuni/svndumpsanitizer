@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 0.8.4, released 27 Jan 2012
+	svndumpsanitizer version 0.8.5, released 23 Mar 2012
 
 	Copyright 2011,2012 Daniel Suni
 
@@ -28,7 +28,7 @@
 #define CHANGE 1
 #define DELETE 2
 #define REPLACE 3
-#define CONTENT_PADDING 1
+#define CONTENT_PADDING 2
 #define INCREMENT 10
 #define NEWLINE 10
 
@@ -588,7 +588,7 @@ int main(int argc, char **argv) {
 			strcpy(temp_str, no_longer_relevant[i]);
 			strcat(temp_str, "/");
 			for (j = 0; j < no_len; ++j) {
-				if (i != j && no_longer_relevant[j] != NULL && starts_with(no_longer_relevant[j], temp_str)) {
+				if (i != j && no_longer_relevant[j] != NULL && (starts_with(no_longer_relevant[j], temp_str) || strcmp(no_longer_relevant[i], no_longer_relevant[j]) == 0)) {
 					free(no_longer_relevant[j]);
 					no_longer_relevant[j] = NULL;
 				}
