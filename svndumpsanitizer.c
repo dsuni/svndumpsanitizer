@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 0.8.5, released 23 Mar 2012
+	svndumpsanitizer version 1.0.0, released 23 Nov 2012
 
 	Copyright 2011,2012 Daniel Suni
 
@@ -62,7 +62,7 @@ void show_help_and_exit() {
 	printf("\t-n, --include [PATHS]\n");
 	printf("\t\tList of repository paths to include.\n\n");
 	printf("\t-e, --exclude [PATHS]\n");
-	printf("\t\tList of repository paths to include.\n\n");
+	printf("\t\tList of repository paths to exclude.\n\n");
 	printf("\t\tYou must specify at least one path to include OR at least one path to exclude\n");
 	printf("\t\tYou may not specify includes and excludes at the same time.\n\n");
 	printf("\t\tPATHS are space separated paths as they appear in the svn repository\n");
@@ -101,6 +101,7 @@ int main(int argc, char **argv) {
 	char *tok_str = NULL;
 	int steps = 6;
 	int cur_step = 1;
+	int delete_needed = 0;
 
 	// Variables to help analyze user input 
 	int in = 0;
@@ -579,9 +580,28 @@ int main(int argc, char **argv) {
 			free(temp_str);
 		}
 	}
+	// Check that we don't have anything specifically included in our "no_longer_relevant"-section.
+	for (i = 0; i < no_len; ++i) {
+		if (no_longer_relevant[i] != NULL) {
+			if ((temp_str = (char*)malloc(strlen(no_longer_relevant[i]) + 2)) == NULL) {
+				exit_with_error("malloc failed", 2);
+			}
+			strcpy(temp_str, no_longer_relevant[i]);
+			strcat(temp_str, "/");
+			for (j = 0; j < inc_len ; ++j) {
+				if (strcmp(no_longer_relevant[i], include[j]) == 0 || starts_with(include[j], temp_str)) {
+					free(no_longer_relevant[i]);
+					no_longer_relevant[i] = NULL;
+					break;
+				}
+			}
+			free(temp_str);
+		}
+	}
 	// Remove redundant entries (i.e. delete only "trunk" instead of "trunk", "trunk/foo", "trunk/bar", et.c.)
 	for (i = 0; i < no_len; ++i) {
 		if (no_longer_relevant[i] != NULL) {
+			delete_needed = 1;
 			if ((temp_str = (char*)malloc(strlen(no_longer_relevant[i]) + 2)) == NULL) {
 				exit_with_error("malloc failed", 2);
 			}
@@ -591,6 +611,14 @@ int main(int argc, char **argv) {
 				if (i != j && no_longer_relevant[j] != NULL && (starts_with(no_longer_relevant[j], temp_str) || strcmp(no_longer_relevant[i], no_longer_relevant[j]) == 0)) {
 					free(no_longer_relevant[j]);
 					no_longer_relevant[j] = NULL;
+				}
+			}
+
+			for (j = 0; j < inc_len ; ++j) {
+				if (strcmp(no_longer_relevant[i], include[j]) == 0 || starts_with(include[j], temp_str)) {
+					free(no_longer_relevant[i]);
+					no_longer_relevant[i] = NULL;
+					break;
 				}
 			}
 			free(temp_str);
@@ -693,7 +721,7 @@ int main(int argc, char **argv) {
 	++cur_step;
 
 	// Now we deal with any surplus nodes by adding a revision that deletes them.
-	if (no_longer_relevant != NULL) {
+	if (delete_needed) {
 		time(&rawtime);
 		ptm = gmtime(&rawtime);
 		if (drop_empty) {
