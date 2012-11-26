@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 1.0.0, released 23 Nov 2012
+	svndumpsanitizer version 1.0.1, released 26 Nov 2012
 
 	Copyright 2011,2012 Daniel Suni
 
@@ -583,19 +583,19 @@ int main(int argc, char **argv) {
 	// Check that we don't have anything specifically included in our "no_longer_relevant"-section.
 	for (i = 0; i < no_len; ++i) {
 		if (no_longer_relevant[i] != NULL) {
-			if ((temp_str = (char*)malloc(strlen(no_longer_relevant[i]) + 2)) == NULL) {
-				exit_with_error("malloc failed", 2);
-			}
-			strcpy(temp_str, no_longer_relevant[i]);
-			strcat(temp_str, "/");
 			for (j = 0; j < inc_len ; ++j) {
-				if (strcmp(no_longer_relevant[i], include[j]) == 0 || starts_with(include[j], temp_str)) {
+				if ((temp_str = (char*)malloc(strlen(include[j]) + 2)) == NULL) {
+					exit_with_error("malloc failed", 2);
+				}
+				strcpy(temp_str, include[j]);
+				strcat(temp_str, "/");
+				if (strcmp(no_longer_relevant[i], include[j]) == 0 || starts_with(no_longer_relevant[i], temp_str)) {
 					free(no_longer_relevant[i]);
 					no_longer_relevant[i] = NULL;
 					break;
 				}
+				free(temp_str);
 			}
-			free(temp_str);
 		}
 	}
 	// Remove redundant entries (i.e. delete only "trunk" instead of "trunk", "trunk/foo", "trunk/bar", et.c.)
