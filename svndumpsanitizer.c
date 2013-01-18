@@ -1,7 +1,7 @@
 /*
-	svndumpsanitizer version 1.0.1, released 26 Nov 2012
+	svndumpsanitizer version 1.0.2, released 18 Jan 2013
 
-	Copyright 2011,2012 Daniel Suni
+	Copyright 2011,2012,2013 Daniel Suni
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -16,6 +16,13 @@
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+// WIN32 modification by $ergi0
+#ifdef WIN32
+#define _CRT_SECURE_NO_WARNINGS
+#include <sys/types.h>
+#define fseeko _fseeki64
+#endif
 
 #define _FILE_OFFSET_BITS 64
 
