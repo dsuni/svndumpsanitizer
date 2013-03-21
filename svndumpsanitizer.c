@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 1.0.2, released 18 Jan 2013
+	svndumpsanitizer version 1.1.0, released 21 Mar 2013
 
 	Copyright 2011,2012,2013 Daniel Suni
 
@@ -81,7 +81,16 @@ void show_help_and_exit() {
 	printf("\t-d, --drop-empty\n");
 	printf("\t\tAny revision that after sanitizing, contains no actions will be dropped altogether.\n");
 	printf("\t\tThe remaining revisions will be renumbered. You will lose the commit messages for\n");
-	printf("\t\tthe dropped revisions.\n");
+	printf("\t\tthe dropped revisions.\n\n");
+	printf("\t-r, --redefine-root [PATH]\n");
+	printf("\t\tRedefines the repository root. This option can only be used with the include option.\n");
+	printf("\t\tThe path provided to this option must be the beginning of (or the whole) path\n");
+	printf("\t\tprovided to the include option. If more than one path is provided you can provide\n");
+	printf("\t\ta path only up to the point where the paths diverge.\n\n");
+	printf("\t\tE.g.\n\t\t\"-n foo/bar/trunk -r foo/bar\" - OK. (This is probably the typical case.)\n");
+	printf("\t\t\"-n foo/bar/trunk -r foo/bar/trunk\" - OK.\n");
+	printf("\t\t\"-n foo/bar/trunk foo/baz/trunk -r foo\" - OK.\n");
+	printf("\t\t\"-n foo/bar/trunk foo/baz/trunk -r foo/bar\" - WRONG.\n");
 	exit(0);
 }
 
@@ -95,6 +104,29 @@ int starts_with(char *a, char *b) {
 		++i;
 	}
 	return 1;
+}
+
+// Reduces path as far as the redefined root allows. E.g. if foo/trunk is the redefined root
+// foo/bar/baz.txt will be reduced to bar/baz.txt and foo/trunk/quux.txt will become quux.txt
+char* reduce_path(char* redefined_root, char* path) {
+	char* str;
+	int i = 0;
+	int mark = -1;
+	if ((str = (char*)malloc(strlen(path) + 1)) == NULL) {
+		exit_with_error("malloc failed", 2);
+	}
+	while (redefined_root[i] != '\0') {
+		if (path[i] != redefined_root[i]) {
+			strcpy(str, &path[mark + 1]);
+			return str;
+		}
+		if (path[i] == '/') {
+			mark = i;
+		}
+		++i;
+	}
+	strcpy(str, &path[i + 1]);
+	return str;
 }
 
 int main(int argc, char **argv) {
@@ -116,6 +148,7 @@ int main(int argc, char **argv) {
 	int incl = 0;
 	int excl = 0;
 	int drop = 0;
+	int redef = 0;
 
 	// Variables related to files and paths
 	FILE *infile = NULL;
@@ -125,6 +158,7 @@ int main(int argc, char **argv) {
 	char **mustkeep = NULL; // For storing the paths the user wants to discard, but must be kept
 	char **relevant_paths = NULL;
 	char **no_longer_relevant = NULL;
+	char *redefined_root = NULL;
 
 	// Variables to hold the size of 2D pseudoarrays
 	int inc_len = 0;
@@ -172,7 +206,8 @@ int main(int argc, char **argv) {
 			incl = (!strcmp(argv[i], "--include") || !strcmp(argv[i], "-n"));
 			excl = (!strcmp(argv[i], "--exclude") || !strcmp(argv[i], "-e"));
 			drop = (!strcmp(argv[i], "--drop-empty") || !strcmp(argv[i], "-d"));
-			if (!(in || out || incl || excl || drop)) {
+			redef = (!strcmp(argv[i], "--redefine-root") || !strcmp(argv[i], "-r"));
+			if (!(in || out || incl || excl || drop || redef)) {
 				exit_with_error(strcat(argv[i], " is not a valid parameter. Use -h for help."), 1);
 			}
 			else if (drop) {
@@ -218,6 +253,9 @@ int main(int argc, char **argv) {
 			}
 			++exc_len;
 		}
+		else if (redef && redefined_root == NULL) {
+			redefined_root = argv[i];
+		}
 		else {
 			exit_with_error(strcat(argv[i], " is not a valid parameter. Use -h for help."), 1);
 		}
@@ -237,6 +275,27 @@ int main(int argc, char **argv) {
 		fclose(infile);
 		fclose(outfile);
 		exit_with_error("You may not specify both includes and excludes", 1);
+	}
+	if (exclude != NULL && redefined_root != NULL) {
+		fclose(infile);
+		fclose(outfile);
+		exit_with_error("You may not redefine root when using excludes", 1);
+	}
+	if (redefined_root != NULL) {
+		if ((temp_str = (char*)malloc(strlen(redefined_root) + 2)) == NULL) {
+			exit_with_error("malloc failed", 2);
+		}
+		strcpy(temp_str, redefined_root);
+		strcat(temp_str, "/");
+		for (i = 0; i < inc_len; ++i) {
+			if (!(strcmp(include[i], redefined_root) == 0 || starts_with(include[i], temp_str))) {
+				fclose(infile);
+				fclose(outfile);
+				strcat(redefined_root, " can not be redefined as root for include ");
+				exit_with_error(strcat(redefined_root, include[i]), 1);
+			}
+		}
+		free(temp_str);
 	}
 	want_by_default = (include == NULL);
 	printf("Step %d/%d: Reading the infile... ", cur_step, steps);
@@ -605,6 +664,45 @@ int main(int argc, char **argv) {
 			}
 		}
 	}
+
+	// Remove any directory entries that should no longer exist with the redefined root
+	if (redefined_root != NULL) {
+		for (i = 0; i < rev_len ; ++i) {
+			for (j = 0; j < revisions[i].size; ++j) {
+				if (revisions[i].nodes[j].wanted) {
+					if ((temp_str = (char*)malloc(strlen(redefined_root) + 2)) == NULL) {
+						exit_with_error("malloc failed", 2);
+					}
+					strcpy(temp_str, redefined_root);
+					strcat(temp_str, "/");
+					for (k = strlen(temp_str) - 1; k > 0; --k) {
+						if (temp_str[k] == '/') {
+							temp_str[k] = '\0';
+							if (strcmp(temp_str, revisions[i].nodes[j].path) == 0) {
+								revisions[i].nodes[j].wanted = 0;
+								for (l = 0; l < no_len; ++l) {
+									if (strcmp(revisions[i].nodes[j].path, no_longer_relevant[l]) == 0) {
+										free(no_longer_relevant[l]);
+										no_longer_relevant[l] = NULL;
+									}
+								}
+							}
+						}
+					}
+					free(temp_str);
+				}
+			}
+		}
+		// Reduce the paths of deletion candidates, so that we delete the correct paths
+		for (i = 0; i < no_len; ++i) {
+			if (no_longer_relevant[i] != NULL) {
+				temp_str = reduce_path(redefined_root, no_longer_relevant[i]);
+				strcpy(no_longer_relevant[i], temp_str);
+				free(temp_str);
+			}
+		}
+	}
+
 	// Remove redundant entries (i.e. delete only "trunk" instead of "trunk", "trunk/foo", "trunk/bar", et.c.)
 	for (i = 0; i < no_len; ++i) {
 		if (no_longer_relevant[i] != NULL) {
@@ -619,8 +717,7 @@ int main(int argc, char **argv) {
 					free(no_longer_relevant[j]);
 					no_longer_relevant[j] = NULL;
 				}
-			}
-
+			}			
 			for (j = 0; j < inc_len ; ++j) {
 				if (strcmp(no_longer_relevant[i], include[j]) == 0 || starts_with(include[j], temp_str)) {
 					free(no_longer_relevant[i]);
@@ -677,6 +774,12 @@ int main(int argc, char **argv) {
 					fprintf(outfile, "Node-copyfrom-rev: %d\n", revisions[temp_int].number);
 					toggle = 1;
 				}
+				else if(writing && redefined_root != NULL && starts_with(current_line, "Node-copyfrom-path: ")) {
+					temp_str = reduce_path(redefined_root, &current_line[20]);
+					fprintf(outfile, "Node-copyfrom-path: %s\n", temp_str);
+					toggle = 1;
+					free(temp_str);	
+				}
 				else if (starts_with(current_line, "Content-length: ")) {
 					con_len = (off_t)atol(&current_line[16]);
 					if (writing) {
@@ -697,6 +800,12 @@ int main(int argc, char **argv) {
 				reading_node = 1;
 				++nod;
 				writing = revisions[rev].nodes[nod].wanted;
+				if (writing && redefined_root != NULL) {
+					temp_str = reduce_path(redefined_root, &current_line[11]);
+					fprintf(outfile, "Node-path: %s\n", temp_str);
+					toggle = 1;
+					free(temp_str);
+				}
 			}
 			else if (starts_with(current_line, "Revision-number: ")) {
 				++rev;
