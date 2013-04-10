@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 1.1.0, released 21 Mar 2013
+	svndumpsanitizer version 1.1.1, released 10 Apr 2013
 
 	Copyright 2011,2012,2013 Daniel Suni
 
@@ -94,6 +94,14 @@ void show_help_and_exit() {
 	exit(0);
 }
 
+char* str_malloc(size_t sz) {
+	char* str;
+	if ((str = (char*)malloc(sz)) == NULL) {
+		exit_with_error("malloc failed", 2);
+	}
+	return str;
+}
+
 // Returns 1 if string a starts with string b, otherwise 0
 int starts_with(char *a, char *b) {
 	int i = 0;
@@ -112,9 +120,7 @@ char* reduce_path(char* redefined_root, char* path) {
 	char* str;
 	int i = 0;
 	int mark = -1;
-	if ((str = (char*)malloc(strlen(path) + 1)) == NULL) {
-		exit_with_error("malloc failed", 2);
-	}
+	str = str_malloc(strlen(path) + 1);
 	while (redefined_root[i] != '\0') {
 		if (path[i] != redefined_root[i]) {
 			strcpy(str, &path[mark + 1]);
@@ -282,9 +288,7 @@ int main(int argc, char **argv) {
 		exit_with_error("You may not redefine root when using excludes", 1);
 	}
 	if (redefined_root != NULL) {
-		if ((temp_str = (char*)malloc(strlen(redefined_root) + 2)) == NULL) {
-			exit_with_error("malloc failed", 2);
-		}
+		temp_str = str_malloc(strlen(redefined_root) + 2);
 		strcpy(temp_str, redefined_root);
 		strcat(temp_str, "/");
 		for (i = 0; i < inc_len; ++i) {
@@ -334,9 +338,7 @@ int main(int argc, char **argv) {
 					}
 				}
 				else if (starts_with(current_line,"Node-copyfrom-path: ")) {
-					if ((current_node[nod_len].copyfrom = (char*)malloc(strlen(&current_line[19]))) == NULL) {
-						exit_with_error("malloc failed", 2);
-					}
+					current_node[nod_len].copyfrom = str_malloc(strlen(&current_line[19]));
 					strcpy(current_node[nod_len].copyfrom, &current_line[20]);
 				}
 			} // End of "if (reading_node)"
@@ -351,9 +353,7 @@ int main(int argc, char **argv) {
 				else if ((current_node = (node*)realloc(current_node, (nod_len + 1) * sizeof(node))) == NULL) {
 					exit_with_error("realloc failed", 2);
 				}
-				if ((current_node[nod_len].path = (char*)malloc(strlen(&current_line[10]))) == NULL) {
-					exit_with_error("malloc failed", 2);
-				}
+				current_node[nod_len].path = str_malloc(strlen(&current_line[10]));
 				strcpy(current_node[nod_len].path, &current_line[11]);
 				current_node[nod_len].copyfrom = NULL;
 				current_node[nod_len].wanted = want_by_default;
@@ -408,9 +408,7 @@ int main(int argc, char **argv) {
 		for (i = rev_len - 1; i >= 0; --i) {
 			for (j = 0; j < revisions[i].size; ++j) {
 				for (k = 0; k < exc_len; ++k) {
-					if ((temp_str = (char*)malloc(strlen(exclude[k]) + 2)) == NULL) {
-						exit_with_error("malloc failed", 2);
-					}
+					temp_str = str_malloc(strlen(exclude[k]) + 2);
 					strcpy(temp_str, exclude[k]);
 					strcat(temp_str, "/");
 					if (strcmp(revisions[i].nodes[j].path, exclude[k]) == 0 || starts_with(revisions[i].nodes[j].path, temp_str)) {
@@ -423,9 +421,7 @@ int main(int argc, char **argv) {
 					if ((temp_str = (char*)calloc(strlen(mustkeep[k]) + 2, 1)) == NULL) {
 						exit_with_error("calloc failed", 2);
 					}
-					if ((temp_str2 = (char*)malloc(strlen(mustkeep[k]) + 1)) == NULL) {
-						exit_with_error("malloc failed", 2);
-					}
+					temp_str2 = str_malloc(strlen(mustkeep[k]) + 1);
 					strcpy(temp_str2, mustkeep[k]);
 					tok_str = strtok(temp_str2, "/");
 					while (tok_str != NULL) {
@@ -446,9 +442,7 @@ int main(int argc, char **argv) {
 				if (revisions[i].nodes[j].wanted && revisions[i].nodes[j].copyfrom != NULL) {
 					should_do = 0;
 					for (k = 0; k < exc_len; ++k) {
-						if ((temp_str = (char*)malloc(strlen(exclude[k]) + 2)) == NULL) {
-							exit_with_error("malloc failed", 2);
-						}
+						temp_str = str_malloc(strlen(exclude[k]) + 2);
 						strcpy(temp_str, exclude[k]);
 						strcat(temp_str, "/");
 						if (strcmp(revisions[i].nodes[j].copyfrom, exclude[k]) == 0 || starts_with(revisions[i].nodes[j].copyfrom, temp_str)) {
@@ -460,9 +454,7 @@ int main(int argc, char **argv) {
 						if ((mustkeep = (char**)realloc(mustkeep, (must_len + 1) * sizeof(char*))) == NULL) {
 							exit_with_error("realloc failed", 2);
 						}
-						if ((mustkeep[must_len] = (char*)malloc(strlen(revisions[i].nodes[j].copyfrom) + 1)) == NULL) {
-							exit_with_error("malloc failed", 2);
-						}
+						mustkeep[must_len] = str_malloc(strlen(revisions[i].nodes[j].copyfrom) + 1);
 						strcpy(mustkeep[must_len], revisions[i].nodes[j].copyfrom);
 						++must_len;
 					}
@@ -476,14 +468,10 @@ int main(int argc, char **argv) {
 		for (i = rev_len - 1; i >= 0; --i) {
 			for (j = 0 ; j < revisions[i].size ; ++j) {
 				for (k = 0; k < inc_len; ++k) {
-					if ((temp_str = (char*)malloc(strlen(include[k]) + 2)) == NULL) {
-						exit_with_error("malloc failed", 2);
-					}
+					temp_str = str_malloc(strlen(include[k]) + 2);
 					strcpy(temp_str, include[k]);
 					strcat(temp_str, "/");
-					if ((temp_str2 = (char*)malloc(strlen(revisions[i].nodes[j].path) + 2)) == NULL) {
-						exit_with_error("malloc failed", 2);
-					}
+					temp_str2 = str_malloc(strlen(revisions[i].nodes[j].path) + 2);
 					strcpy(temp_str2, revisions[i].nodes[j].path);
 					strcat(temp_str2, "/");
 					if (strcmp(revisions[i].nodes[j].path, include[k]) == 0 || starts_with(revisions[i].nodes[j].path, temp_str) || starts_with(include[k], temp_str2)) {
@@ -497,9 +485,7 @@ int main(int argc, char **argv) {
 					if ((temp_str = (char*)calloc(strlen(mustkeep[k]) + 2, 1)) == NULL) {
 						exit_with_error("calloc failed", 2);
 					}
-					if ((temp_str2 = (char*)malloc(strlen(mustkeep[k]) + 1)) == NULL) {
-						exit_with_error("malloc failed", 2);
-					}
+					temp_str2 = str_malloc(strlen(mustkeep[k]) + 1);
 					strcpy(temp_str2, mustkeep[k]);
 					tok_str = strtok(temp_str2, "/");
 					while (tok_str != NULL) {
@@ -520,9 +506,7 @@ int main(int argc, char **argv) {
 				if (revisions[i].nodes[j].wanted && revisions[i].nodes[j].copyfrom != NULL) {
 					should_do = 1;
 					for (k = 0; k < inc_len; ++k) {
-						if ((temp_str = (char*)malloc(strlen(include[k]) + 2)) == NULL) {
-							exit_with_error("malloc failed", 2);
-						}
+						temp_str = str_malloc(strlen(include[k]) + 2);
 						strcpy(temp_str, include[k]);
 						strcat(temp_str, "/");
 						if (strcmp(revisions[i].nodes[j].copyfrom, include[k]) == 0 || starts_with(revisions[i].nodes[j].copyfrom, temp_str)) {
@@ -534,9 +518,7 @@ int main(int argc, char **argv) {
 						if ((mustkeep = (char**)realloc(mustkeep, (must_len + 1) * sizeof(char*))) == NULL) {
 							exit_with_error("realloc failed", 2);
 						}
-						if ((mustkeep[must_len] = (char*)malloc(strlen(revisions[i].nodes[j].copyfrom) + 1)) == NULL) {
-							exit_with_error("malloc failed", 2);
-						}
+						mustkeep[must_len] = str_malloc(strlen(revisions[i].nodes[j].copyfrom) + 1);
 						strcpy(mustkeep[must_len], revisions[i].nodes[j].copyfrom);
 						++must_len;
 					}
@@ -564,9 +546,7 @@ int main(int argc, char **argv) {
 					if ((relevant_paths = (char**)realloc(relevant_paths, (rel_len + 1) * sizeof(char*))) == NULL) {
 						exit_with_error("realloc failed", 2);
 					}
-					if ((relevant_paths[rel_len] = (char*)malloc(strlen(revisions[i].nodes[j].path) + 1)) == NULL) {
-						exit_with_error("malloc failed", 2);
-					}
+					relevant_paths[rel_len] = str_malloc(strlen(revisions[i].nodes[j].path) + 1);
 					strcpy(relevant_paths[rel_len], revisions[i].nodes[j].path);
 					++rel_len;					
 				}
@@ -576,9 +556,7 @@ int main(int argc, char **argv) {
 					if (relevant_paths[k] != NULL && strcmp(revisions[i].nodes[j].path, relevant_paths[k]) == 0) {
 						revisions[i].nodes[j].wanted = 1;
 						for (l = 0; l < rel_len; ++l) {
-							if ((temp_str = (char*)malloc(strlen(revisions[i].nodes[j].path) + 2)) == NULL) {
-								exit_with_error("malloc failed", 2);
-							}
+							temp_str = str_malloc(strlen(revisions[i].nodes[j].path) + 2);
 							strcpy(temp_str, revisions[i].nodes[j].path);
 							strcat(temp_str, "/");
 							if (relevant_paths[l] != NULL && (strcmp(relevant_paths[l], revisions[i].nodes[j].path) == 0 || starts_with(relevant_paths[l], temp_str))) {
@@ -601,18 +579,14 @@ int main(int argc, char **argv) {
 	for (i = 0; i < rel_len; ++i) {
 		if (include == NULL && relevant_paths[i] != NULL) {
 			for (j = 0; j < exc_len; ++j) {
-				if ((temp_str = (char*)malloc(strlen(exclude[j]) + 2)) == NULL) {
-					exit_with_error("malloc failed", 2);
-				}
+				temp_str = str_malloc(strlen(exclude[j]) + 2);
 				strcpy(temp_str, exclude[j]);
 				strcat(temp_str, "/");
 				if (strcmp(relevant_paths[i], exclude[j]) == 0 || starts_with(relevant_paths[i], temp_str)) {
 					if ((no_longer_relevant = (char**)realloc(no_longer_relevant, (no_len + 1) * sizeof(char*))) == NULL) {
 						exit_with_error("realloc failed", 2);
 					}
-					if ((no_longer_relevant[no_len] = (char*)malloc(strlen(relevant_paths[i]) + 1)) == NULL) {
-						exit_with_error("malloc failed", 2);
-					}
+					no_longer_relevant[no_len] = str_malloc(strlen(relevant_paths[i]) + 1);
 					strcpy(no_longer_relevant[no_len], relevant_paths[i]);
 					++no_len;
 				}
@@ -620,24 +594,18 @@ int main(int argc, char **argv) {
 			}
 		}
 		else if (exclude == NULL && relevant_paths[i] != NULL) {
-			if ((temp_str = (char*)malloc(strlen(relevant_paths[i]) + 2)) == NULL) {
-				exit_with_error("malloc failed", 2);
-			}
+			temp_str = str_malloc(strlen(relevant_paths[i]) + 2);
 			strcpy(temp_str, relevant_paths[i]);
 			strcat(temp_str, "/");
 			for (j = 0; j < inc_len; ++j) {
-				if ((temp_str2 = (char*)malloc(strlen(include[j]) + 2)) == NULL) {
-					exit_with_error("malloc failed", 2);
-				}
+				temp_str2 = str_malloc(strlen(include[j]) + 2);
 				strcpy(temp_str2, include[j]);
 				strcat(temp_str2, "/");
 				if (!(strcmp(relevant_paths[i], include[j]) == 0 || starts_with(relevant_paths[i], temp_str2) || starts_with(include[j], temp_str))) {
 					if ((no_longer_relevant = (char**)realloc(no_longer_relevant, (no_len + 1) * sizeof(char*))) == NULL) {
 						exit_with_error("realloc failed", 2);
 					}
-					if ((no_longer_relevant[no_len] = (char*)malloc(strlen(relevant_paths[i]) + 1)) == NULL) {
-						exit_with_error("malloc failed", 2);
-					}
+					no_longer_relevant[no_len] = str_malloc(strlen(relevant_paths[i]) + 1);
 					strcpy(no_longer_relevant[no_len], relevant_paths[i]);
 					++no_len;
 				}
@@ -650,9 +618,7 @@ int main(int argc, char **argv) {
 	for (i = 0; i < no_len; ++i) {
 		if (no_longer_relevant[i] != NULL) {
 			for (j = 0; j < inc_len ; ++j) {
-				if ((temp_str = (char*)malloc(strlen(include[j]) + 2)) == NULL) {
-					exit_with_error("malloc failed", 2);
-				}
+				temp_str = str_malloc(strlen(include[j]) + 2);
 				strcpy(temp_str, include[j]);
 				strcat(temp_str, "/");
 				if (strcmp(no_longer_relevant[i], include[j]) == 0 || starts_with(no_longer_relevant[i], temp_str)) {
@@ -670,9 +636,7 @@ int main(int argc, char **argv) {
 		for (i = 0; i < rev_len ; ++i) {
 			for (j = 0; j < revisions[i].size; ++j) {
 				if (revisions[i].nodes[j].wanted) {
-					if ((temp_str = (char*)malloc(strlen(redefined_root) + 2)) == NULL) {
-						exit_with_error("malloc failed", 2);
-					}
+					temp_str = str_malloc(strlen(redefined_root) + 2);
 					strcpy(temp_str, redefined_root);
 					strcat(temp_str, "/");
 					for (k = strlen(temp_str) - 1; k > 0; --k) {
@@ -707,9 +671,7 @@ int main(int argc, char **argv) {
 	for (i = 0; i < no_len; ++i) {
 		if (no_longer_relevant[i] != NULL) {
 			delete_needed = 1;
-			if ((temp_str = (char*)malloc(strlen(no_longer_relevant[i]) + 2)) == NULL) {
-				exit_with_error("malloc failed", 2);
-			}
+			temp_str = str_malloc(strlen(no_longer_relevant[i]) + 2);
 			strcpy(temp_str, no_longer_relevant[i]);
 			strcat(temp_str, "/");
 			for (j = 0; j < no_len; ++j) {
