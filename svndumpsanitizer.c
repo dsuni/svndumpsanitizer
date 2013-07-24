@@ -518,7 +518,7 @@ int main(int argc, char **argv) {
 					temp_str2 = str_malloc(strlen(revisions[i].nodes[j].path) + 2);
 					strcpy(temp_str2, revisions[i].nodes[j].path);
 					strcat(temp_str2, "/");
-					if (strcmp(revisions[i].nodes[j].path, include[k]) == 0 || wildcmp(revisions[i].nodes[j].path, temp_str) || wildcmp(include[k], temp_str2)) {
+					if (strcmp(revisions[i].nodes[j].path, include[k]) == 0 || starts_with(revisions[i].nodes[j].path, temp_str) || wildcmp(include[k], temp_str2)) {
 						revisions[i].nodes[j].wanted = 1;
 					}
 					free(temp_str);
@@ -540,7 +540,7 @@ int main(int argc, char **argv) {
 						strcat(temp_str,"/");
 						tok_str = strtok(NULL, "/");
 					}
-					if (wildcmp(revisions[i].nodes[j].path, temp_str)) {
+					if (starts_with(revisions[i].nodes[j].path, temp_str)) {
 						revisions[i].nodes[j].wanted = 1;
 					}
 					free(temp_str);
