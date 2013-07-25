@@ -603,7 +603,7 @@ int main(int argc, char **argv) {
 							temp_str = str_malloc(strlen(revisions[i].nodes[j].path) + 2);
 							strcpy(temp_str, revisions[i].nodes[j].path);
 							strcat(temp_str, "/");
-							if (relevant_paths[l] != NULL && (strcmp(relevant_paths[l], revisions[i].nodes[j].path) == 0 || wildcmp(relevant_paths[l], temp_str))) {
+							if (relevant_paths[l] != NULL && (strcmp(relevant_paths[l], revisions[i].nodes[j].path) == 0 || starts_with(relevant_paths[l], temp_str))) {
 								free(relevant_paths[l]);
 								relevant_paths[l] = NULL;
 							}
@@ -626,7 +626,7 @@ int main(int argc, char **argv) {
 				temp_str = str_malloc(strlen(exclude[j]) + 2);
 				strcpy(temp_str, exclude[j]);
 				strcat(temp_str, "/");
-				if (strcmp(relevant_paths[i], exclude[j]) == 0 || wildcmp(relevant_paths[i], temp_str)) {
+				if (strcmp(relevant_paths[i], exclude[j]) == 0 || starts_with(relevant_paths[i], temp_str)) {
 					if ((no_longer_relevant = (char**)realloc(no_longer_relevant, (no_len + 1) * sizeof(char*))) == NULL) {
 						exit_with_error("realloc failed", 2);
 					}
@@ -645,7 +645,7 @@ int main(int argc, char **argv) {
 				temp_str2 = str_malloc(strlen(include[j]) + 2);
 				strcpy(temp_str2, include[j]);
 				strcat(temp_str2, "/");
-				if (!(strcmp(relevant_paths[i], include[j]) == 0 || wildcmp(relevant_paths[i], temp_str2) || wildcmp(include[j], temp_str))) {
+				if (!(strcmp(relevant_paths[i], include[j]) == 0 || starts_with(relevant_paths[i], temp_str2) || starts_with(include[j], temp_str))) {
 					if ((no_longer_relevant = (char**)realloc(no_longer_relevant, (no_len + 1) * sizeof(char*))) == NULL) {
 						exit_with_error("realloc failed", 2);
 					}
