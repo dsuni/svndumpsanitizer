@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 1.1.1, released 10 Apr 2013
+	svndumpsanitizer version 1.2.0, released 25 Jul 2013
 
 	Copyright 2011,2012,2013 Daniel Suni
 
@@ -65,6 +65,9 @@ void exit_with_error(char *message, int exit_code) {
 void show_help_and_exit() {
 	printf("svndumpsanitizer usage:\n\n");
 	printf("svndumpsanitizer [-i, --infile INFILE] [-o, --outfile OUTFILE] [OPTIONS]\n\n");
+	printf("INFILE is mandatory; OUTFILE is optional. If omitted the output will be printed to\n");
+	printf("stdout. Reading from stdin is not supported because svndumpsanitizer needs the data\n");
+	printf("twice. (Once for analyzing, once for copying the selected parts.)\n\n");
 	printf("OPTIONS\n");
 	printf("\t-n, --include [PATHS]\n");
 	printf("\t\tList of repository paths to include.\n\n");
@@ -147,6 +150,7 @@ int main(int argc, char **argv) {
 	int steps = 6;
 	int cur_step = 1;
 	int delete_needed = 0;
+	int to_file = 1;
 
 	// Variables to help analyze user input 
 	int in = 0;
@@ -159,6 +163,7 @@ int main(int argc, char **argv) {
 	// Variables related to files and paths
 	FILE *infile = NULL;
 	FILE *outfile = NULL;
+	FILE *messages = stdout;
 	char **include = NULL; // Holds the paths the user wants to keep
 	char **exclude = NULL; // Holds the paths the user wants to discard
 	char **mustkeep = NULL; // For storing the paths the user wants to discard, but must be kept
@@ -270,21 +275,29 @@ int main(int argc, char **argv) {
 		exit_with_error("You must specify an infile", 1);
 	}
 	if (outfile == NULL) {
-		exit_with_error("You must specify an outfile", 1);
+		to_file = 0;
+		outfile = stdout;
+		messages = stderr;
 	}
 	if (include == NULL && exclude == NULL) {
 		fclose(infile);
-		fclose(outfile);
+		if (to_file) {
+			fclose(outfile);
+		}
 		exit_with_error("You must specify something to either include or exclude", 1);
 	}
 	if (include != NULL && exclude != NULL) {
 		fclose(infile);
-		fclose(outfile);
+		if (to_file) {
+			fclose(outfile);
+		}
 		exit_with_error("You may not specify both includes and excludes", 1);
 	}
 	if (exclude != NULL && redefined_root != NULL) {
 		fclose(infile);
-		fclose(outfile);
+		if (to_file) {
+			fclose(outfile);
+		}
 		exit_with_error("You may not redefine root when using excludes", 1);
 	}
 	if (redefined_root != NULL) {
@@ -294,7 +307,9 @@ int main(int argc, char **argv) {
 		for (i = 0; i < inc_len; ++i) {
 			if (!(strcmp(include[i], redefined_root) == 0 || starts_with(include[i], temp_str))) {
 				fclose(infile);
-				fclose(outfile);
+				if (outfile != NULL) {
+					fclose(outfile);
+				}
 				strcat(redefined_root, " can not be redefined as root for include ");
 				exit_with_error(strcat(redefined_root, include[i]), 1);
 			}
@@ -302,8 +317,8 @@ int main(int argc, char **argv) {
 		free(temp_str);
 	}
 	want_by_default = (include == NULL);
-	printf("Step %d/%d: Reading the infile... ", cur_step, steps);
-	fflush(stdout);
+	fprintf(messages, "Step %d/%d: Reading the infile... ", cur_step, steps);
+	fflush(messages);
 	++cur_step;
 
 	// Read the metadata from all nodes.
@@ -397,8 +412,8 @@ int main(int argc, char **argv) {
 	++rev_len;
 	current_line[0] = '\0';
 	cur_len = 0;
-	printf("OK\nStep %d/%d: Removing unwanted nodes... ", cur_step, steps);
-	fflush(stdout);
+	fprintf(messages, "OK\nStep %d/%d: Removing unwanted nodes... ", cur_step, steps);
+	fflush(messages);
 	++cur_step;
 
 	// Analyze the metadata in order to decide which nodes to keep.
@@ -526,8 +541,8 @@ int main(int argc, char **argv) {
 			}
 		}
 	}
-	printf("OK\nStep %d/%d: Bringing back necessary delete operations... ", cur_step, steps);
-	fflush(stdout);
+	fprintf(messages, "OK\nStep %d/%d: Bringing back necessary delete operations... ", cur_step, steps);
+	fflush(messages);
 	++cur_step;
 
 	// Parse through the metadata again - this time bringing back any
@@ -570,8 +585,8 @@ int main(int argc, char **argv) {
 			}
 		}
 	}
-	printf("OK\nStep %d/%d: Identifying lingering unwanted nodes... ", cur_step, steps);
-	fflush(stdout);
+	fprintf(messages, "OK\nStep %d/%d: Identifying lingering unwanted nodes... ", cur_step, steps);
+	fflush(messages);
 	++cur_step;
 
 	// Find paths which are not relevant as specified by the user, but still lingers
@@ -693,8 +708,8 @@ int main(int argc, char **argv) {
 
 	// Renumber the revisions if the empty ones are to be dropped
 	if (drop_empty) {
-		printf("OK\nStep %d/%d: Renumbering revisions... ", cur_step, steps);
-	fflush(stdout);
+		fprintf(messages, "OK\nStep %d/%d: Renumbering revisions... ", cur_step, steps);
+		fflush(messages);
 		++cur_step;
 		revisions[0].number = 0; // Revision 0 is special, and should never be dropped.
 		new_number = 1;
@@ -712,8 +727,8 @@ int main(int argc, char **argv) {
 			}
 		}
 	}
-	printf("OK\nStep %d/%d: Writing the outfile... ", cur_step, steps);
-	fflush(stdout);
+	fprintf(messages, "OK\nStep %d/%d: Writing the outfile... ", cur_step, steps);
+	fflush(messages);
 	++cur_step;
 
 	// Copy the infile to the outfile skipping the undesireable parts.
@@ -794,8 +809,8 @@ int main(int argc, char **argv) {
 			current_line[cur_len] = '\0';
 		}
 	}
-	printf("OK\nStep %d/%d: Adding revision deleting surplus nodes... ", cur_step, steps);
-	fflush(stdout);
+	fprintf(messages, "OK\nStep %d/%d: Adding revision deleting surplus nodes... ", cur_step, steps);
+	fflush(messages);
 	++cur_step;
 
 	// Now we deal with any surplus nodes by adding a revision that deletes them.
@@ -826,15 +841,17 @@ int main(int argc, char **argv) {
 				fprintf(outfile, "Node-action: delete\n\n\n");
 			}
 		}
-		printf("OK\n");
+		fprintf(messages, "OK\n");
 	}
 	else {
-		printf("NOT NEEDED\n");
+		fprintf(messages, "NOT NEEDED\n");
 	}
 
 	// Clean everything up
 	fclose(infile);
-	fclose(outfile);
+	if (to_file) {
+		fclose(outfile);
+	}
 	for (i = 0; i < rev_len; ++i) {
 		for (j = 0; j < revisions[i].size; ++j) {
 			free(revisions[i].nodes[j].path);
