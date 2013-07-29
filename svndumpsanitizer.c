@@ -117,6 +117,50 @@ int starts_with(char *a, char *b) {
 	return 1;
 }
 
+//Found at http://icodesnippet.com/snippet/cpp/wildcard-search-dreamincode
+// WILDCARD SEARCH FUNCTIONS
+ 
+// Returns:1 on match, 0 on no match.
+//
+int wildcmp(char *wild, char *string) {
+    char *cp, *mp;
+        while ((*string) && (*wild != '*')) {
+            if ((*wild != *string) && (*wild != '?')) {
+            return 0;
+        }
+ 
+        wild++;
+        string++;
+    }
+ 
+while (*string) {
+            if (*wild == '*') {
+                if (!*++wild) {
+                return 1;
+            }
+ 
+            mp = wild;
+            cp = string+1;
+            } else if ((*wild == *string) || (*wild == '?')) {
+ 
+            wild++;
+            string++;
+            } else {
+ 
+            wild = mp;
+            string = cp++;
+        }
+ 
+    }
+ 
+while (*wild == '*') {
+        wild++;
+    }
+ 
+return !*wild;
+}
+
+
 // Reduces path as far as the redefined root allows. E.g. if foo/trunk is the redefined root
 // foo/bar/baz.txt will be reduced to bar/baz.txt and foo/trunk/quux.txt will become quux.txt
 char* reduce_path(char* redefined_root, char* path) {
@@ -481,7 +525,7 @@ int main(int argc, char **argv) {
 	// (By default all nodes are unwanted when using includes.)
 	else {
 		for (i = rev_len - 1; i >= 0; --i) {
-			for (j = 0 ; j < revisions[i].size ; ++j) {
+			for (j = 0 ; j < revisions[i].size ; ++j) {                           
 				for (k = 0; k < inc_len; ++k) {
 					temp_str = str_malloc(strlen(include[k]) + 2);
 					strcpy(temp_str, include[k]);
@@ -489,7 +533,7 @@ int main(int argc, char **argv) {
 					temp_str2 = str_malloc(strlen(revisions[i].nodes[j].path) + 2);
 					strcpy(temp_str2, revisions[i].nodes[j].path);
 					strcat(temp_str2, "/");
-					if (strcmp(revisions[i].nodes[j].path, include[k]) == 0 || starts_with(revisions[i].nodes[j].path, temp_str) || starts_with(include[k], temp_str2)) {
+					if (strcmp(revisions[i].nodes[j].path, include[k]) == 0 || starts_with(revisions[i].nodes[j].path, temp_str) || starts_with(include[k], temp_str2) || wildcmp(include[k], temp_str2)) {
 						revisions[i].nodes[j].wanted = 1;
 					}
 					free(temp_str);
@@ -511,7 +555,7 @@ int main(int argc, char **argv) {
 						strcat(temp_str,"/");
 						tok_str = strtok(NULL, "/");
 					}
-					if (starts_with(revisions[i].nodes[j].path, temp_str)) {
+					if (starts_with(revisions[i].nodes[j].path, temp_str) || wildcmp(temp_str,revisions[i].nodes[j].path)) {
 						revisions[i].nodes[j].wanted = 1;
 					}
 					free(temp_str);
@@ -524,7 +568,7 @@ int main(int argc, char **argv) {
 						temp_str = str_malloc(strlen(include[k]) + 2);
 						strcpy(temp_str, include[k]);
 						strcat(temp_str, "/");
-						if (strcmp(revisions[i].nodes[j].copyfrom, include[k]) == 0 || starts_with(revisions[i].nodes[j].copyfrom, temp_str)) {
+						if (strcmp(revisions[i].nodes[j].copyfrom, include[k]) == 0 || starts_with(revisions[i].nodes[j].copyfrom, temp_str) || wildcmp(temp_str,revisions[i].nodes[j].copyfrom)) {
 							should_do = 0;
 						}
 						free(temp_str);						
@@ -618,7 +662,7 @@ int main(int argc, char **argv) {
 				strcat(temp_str2, "/");
 				if (!(strcmp(relevant_paths[i], include[j]) == 0 || starts_with(relevant_paths[i], temp_str2) || starts_with(include[j], temp_str))) {
 					if ((no_longer_relevant = (char**)realloc(no_longer_relevant, (no_len + 1) * sizeof(char*))) == NULL) {
-						exit_with_error("realloc failed", 2);
+					exit_with_error("realloc failed", 2);
 					}
 					no_longer_relevant[no_len] = str_malloc(strlen(relevant_paths[i]) + 1);
 					strcpy(no_longer_relevant[no_len], relevant_paths[i]);
@@ -733,7 +777,7 @@ int main(int argc, char **argv) {
 
 	// Copy the infile to the outfile skipping the undesireable parts.
 	reading_node = 0;
-	rewind(infile);
+	fseeko(infile, 0 , SEEK_SET);
 	while ((ch = fgetc(infile)) != EOF) {
 		if (ch == NEWLINE) {
 			if (reading_node) {
