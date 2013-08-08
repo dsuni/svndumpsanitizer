@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 1.2.0, released 25 Jul 2013
+	svndumpsanitizer version 1.2.1, released 8 Aug 2013
 
 	Copyright 2011,2012,2013 Daniel Suni
 
@@ -524,10 +524,14 @@ int main(int argc, char **argv) {
 						temp_str = str_malloc(strlen(include[k]) + 2);
 						strcpy(temp_str, include[k]);
 						strcat(temp_str, "/");
-						if (strcmp(revisions[i].nodes[j].copyfrom, include[k]) == 0 || starts_with(revisions[i].nodes[j].copyfrom, temp_str)) {
+						temp_str2 = str_malloc(strlen(revisions[i].nodes[j].path) + 2);
+						strcpy(temp_str2, revisions[i].nodes[j].path);
+						strcat(temp_str2, "/");
+						if (strcmp(revisions[i].nodes[j].copyfrom, include[k]) == 0 || starts_with(revisions[i].nodes[j].copyfrom, temp_str) || starts_with(include[k], temp_str2)) {
 							should_do = 0;
 						}
-						free(temp_str);						
+						free(temp_str);
+						free(temp_str2);
 					}
 					if (should_do) {
 						if ((mustkeep = (char**)realloc(mustkeep, (must_len + 1) * sizeof(char*))) == NULL) {
@@ -555,6 +559,7 @@ int main(int argc, char **argv) {
 				for (k = 0; k < rel_len; ++k) {
 					if (relevant_paths[k] != NULL && strcmp(revisions[i].nodes[j].path, relevant_paths[k]) == 0) {
 						should_do = 0;
+						break;
 					}
 				}
 				if (should_do) {
@@ -636,12 +641,18 @@ int main(int argc, char **argv) {
 				temp_str = str_malloc(strlen(include[j]) + 2);
 				strcpy(temp_str, include[j]);
 				strcat(temp_str, "/");
-				if (strcmp(no_longer_relevant[i], include[j]) == 0 || starts_with(no_longer_relevant[i], temp_str)) {
+				temp_str2 = str_malloc(strlen(no_longer_relevant[i]) + 2);
+				strcpy(temp_str2, no_longer_relevant[i]);
+				strcat(temp_str2, "/");
+				if (strcmp(no_longer_relevant[i], include[j]) == 0 || starts_with(no_longer_relevant[i], temp_str) || starts_with(include[j], temp_str2)) {
 					free(no_longer_relevant[i]);
 					no_longer_relevant[i] = NULL;
+					free(temp_str);
+					free(temp_str2);
 					break;
 				}
 				free(temp_str);
+				free(temp_str2);
 			}
 		}
 	}
