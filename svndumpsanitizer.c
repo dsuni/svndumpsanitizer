@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 1.2.1, released 8 Aug 2013
+	svndumpsanitizer version 1.2.2, released 12 Nov 2013
 
 	Copyright 2011,2012,2013 Daniel Suni
 
@@ -671,7 +671,7 @@ int main(int argc, char **argv) {
 							if (strcmp(temp_str, revisions[i].nodes[j].path) == 0) {
 								revisions[i].nodes[j].wanted = 0;
 								for (l = 0; l < no_len; ++l) {
-									if (strcmp(revisions[i].nodes[j].path, no_longer_relevant[l]) == 0) {
+									if (no_longer_relevant[l] != NULL && strcmp(revisions[i].nodes[j].path, no_longer_relevant[l]) == 0) {
 										free(no_longer_relevant[l]);
 										no_longer_relevant[l] = NULL;
 									}
@@ -744,7 +744,7 @@ int main(int argc, char **argv) {
 
 	// Copy the infile to the outfile skipping the undesireable parts.
 	reading_node = 0;
-	rewind(infile);
+	fseeko(infile, 0 , SEEK_SET); // Replaced "rewind(infile);" with this because (windows + huge files + rewind) == fail.
 	while ((ch = fgetc(infile)) != EOF) {
 		if (ch == NEWLINE) {
 			if (reading_node) {
