@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 1.2.2, released 12 Nov 2013
+	svndumpsanitizer version 1.2.3, released 8 Dec 2013
 
 	Copyright 2011,2012,2013 Daniel Suni
 
@@ -134,7 +134,20 @@ char* reduce_path(char* redefined_root, char* path) {
 		}
 		++i;
 	}
-	strcpy(str, &path[i + 1]);
+	// This means we've found a path that can be fully reduced - i.e. the redefined root completely
+	// matches the beginning of the path. E.g. redefined_root == foo/bar path == foo/bar/baz. i == 7 and
+	// therefore points at the second slash. We return everything following that slash, but not the slash.
+	if (path[i] == '/') {
+		strcpy(str, &path[i + 1]);
+		return str;
+	}
+	// This means that redefined_root == path. We return an empty string.
+	else if (path[i] == '\0') {
+		str[0] = '\0';
+		return str;
+	}
+	// This means we've found a fake match. E.g. redefined_root == trunk/foo, path == trunk/foobar
+	strcpy(str, &path[mark + 1]);
 	return str;
 }
 
@@ -310,8 +323,11 @@ int main(int argc, char **argv) {
 				if (outfile != NULL) {
 					fclose(outfile);
 				}
-				strcat(redefined_root, " can not be redefined as root for include ");
-				exit_with_error(strcat(redefined_root, include[i]), 1);
+				temp_str2 = str_malloc(strlen(redefined_root) + strlen(include[i]) + 43);
+				strcpy(temp_str2, redefined_root);
+				strcat(temp_str2, " can not be redefined as root for include ");
+				strcat(temp_str2, include[i]);
+				exit_with_error(temp_str2, 1);
 			}
 		}
 		free(temp_str);
