@@ -1,7 +1,7 @@
 /*
-	svndumpsanitizer version 1.2.3, released 8 Dec 2013
+	svndumpsanitizer version 1.2.4, released 28 Jun 2014
 
-	Copyright 2011,2012,2013 Daniel Suni
+	Copyright 2011,2012,2013,2014 Daniel Suni
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@
 #include <string.h>
 #include <time.h>
 
+#define SDS_VERSION "1.2.4"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -93,7 +94,14 @@ void show_help_and_exit() {
 	printf("\t\tE.g.\n\t\t\"-n foo/bar/trunk -r foo/bar\" - OK. (This is probably the typical case.)\n");
 	printf("\t\t\"-n foo/bar/trunk -r foo/bar/trunk\" - OK.\n");
 	printf("\t\t\"-n foo/bar/trunk foo/baz/trunk -r foo\" - OK.\n");
-	printf("\t\t\"-n foo/bar/trunk foo/baz/trunk -r foo/bar\" - WRONG.\n");
+	printf("\t\t\"-n foo/bar/trunk foo/baz/trunk -r foo/bar\" - WRONG.\n\n");
+	printf("\t-v, --version\n");
+	printf("\t\tPrint version and exit.\n");
+	exit(0);
+}
+
+void show_version_and_exit() {
+	printf("Svndumpsanitizer %s\n", SDS_VERSION);
 	exit(0);
 }
 
@@ -224,6 +232,13 @@ int main(int argc, char **argv) {
 				free(include);
 				free(exclude);
 				show_help_and_exit();
+			}
+			if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0) {
+				free(current_line);
+				free(revisions);
+				free(include);
+				free(exclude);
+				show_version_and_exit();
 			}
 			in = (!strcmp(argv[i], "--infile") || !strcmp(argv[i], "-i"));
 			out = (!strcmp(argv[i], "--outfile") || !strcmp(argv[i], "-o"));
@@ -476,7 +491,10 @@ int main(int argc, char **argv) {
 						temp_str = str_malloc(strlen(exclude[k]) + 2);
 						strcpy(temp_str, exclude[k]);
 						strcat(temp_str, "/");
-						if (strcmp(revisions[i].nodes[j].copyfrom, exclude[k]) == 0 || starts_with(revisions[i].nodes[j].copyfrom, temp_str)) {
+						temp_str2 = str_malloc(strlen(revisions[i].nodes[j].copyfrom) + 2);
+						strcpy(temp_str2, revisions[i].nodes[j].copyfrom);
+						strcat(temp_str2, "/");
+						if (strcmp(revisions[i].nodes[j].copyfrom, exclude[k]) == 0 || starts_with(revisions[i].nodes[j].copyfrom, temp_str) || starts_with(exclude[k], temp_str2)) {
 							should_do = 1;
 						}
 						free(temp_str);
