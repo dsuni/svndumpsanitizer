@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 1.2.4, released 28 Jun 2014
+	svndumpsanitizer version 1.2.5, released 4 Jul 2014
 
 	Copyright 2011,2012,2013,2014 Daniel Suni
 
@@ -31,7 +31,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "1.2.4"
+#define SDS_VERSION "1.2.5"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -498,6 +498,7 @@ int main(int argc, char **argv) {
 							should_do = 1;
 						}
 						free(temp_str);
+						free(temp_str2);
 					}
 					if (should_do) {
 						if ((mustkeep = (char**)realloc(mustkeep, (must_len + 1) * sizeof(char*))) == NULL) {
