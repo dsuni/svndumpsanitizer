@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 1.2.5, released 4 Jul 2014
+	svndumpsanitizer version 1.2.6, released 27 Jul 2014
 
 	Copyright 2011,2012,2013,2014 Daniel Suni
 
@@ -31,7 +31,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "1.2.5"
+#define SDS_VERSION "1.2.6"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -841,7 +841,11 @@ int main(int argc, char **argv) {
 				}
 			}
 			if (writing && !toggle) {
-				fprintf(outfile, "%s\n", current_line);
+				// Had to replace fprintf(outfile, "%s\n", current_line); with this,
+				// because, apparently it's possible to have NULL characters in SVN
+				// commit messages... (WTF?)
+				fwrite(current_line, 1, cur_len, outfile);
+				fputc('\n', outfile);
 			}
 			else {
 				toggle = 0;
