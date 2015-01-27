@@ -1,7 +1,7 @@
 /*
-	svndumpsanitizer version 1.2.6, released 27 Jul 2014
+	svndumpsanitizer version 1.2.7, released 27 Jan 2015
 
-	Copyright 2011,2012,2013,2014 Daniel Suni
+	Copyright 2011,2012,2013,2014,2015 Daniel Suni
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// WIN32 modification by $ergi0
+// WIN32 modification by $ergi0 and squeek502
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS
 #include <sys/types.h>
@@ -31,7 +31,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "1.2.6"
+#define SDS_VERSION "1.2.7"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
