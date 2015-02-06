@@ -21,6 +21,8 @@
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS
 #include <sys/types.h>
+#include <io.h>
+#include <fcntl.h>
 #define fseeko _fseeki64
 #endif
 
@@ -305,6 +307,10 @@ int main(int argc, char **argv) {
 	if (outfile == NULL) {
 		to_file = 0;
 		outfile = stdout;
+
+#ifdef _WIN32
+		_setmode(_fileno(outfile), _O_BINARY);
+#endif
 		messages = stderr;
 	}
 	if (include == NULL && exclude == NULL) {
