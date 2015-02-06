@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 1.2.7, released 27 Jan 2015
+	svndumpsanitizer version 1.2.8, released 6 Feb 2015
 
 	Copyright 2011,2012,2013,2014,2015 Daniel Suni
 
@@ -17,7 +17,7 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// WIN32 modification by $ergi0 and squeek502
+// WIN32 modification by $ergi0, squeek502 and dufreyne
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS
 #include <sys/types.h>
@@ -33,7 +33,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "1.2.7"
+#define SDS_VERSION "1.2.8"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -307,7 +307,7 @@ int main(int argc, char **argv) {
 	if (outfile == NULL) {
 		to_file = 0;
 		outfile = stdout;
-
+// Without this output may be corrupted on windows.
 #ifdef _WIN32
 		_setmode(_fileno(outfile), _O_BINARY);
 #endif
