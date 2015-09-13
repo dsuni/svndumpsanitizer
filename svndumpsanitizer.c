@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 1.2.8, released 6 Feb 2015
+	svndumpsanitizer version 1.2.9, released 13 Sep 2015
 
 	Copyright 2011,2012,2013,2014,2015 Daniel Suni
 
@@ -33,7 +33,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "1.2.8"
+#define SDS_VERSION "1.2.9"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -103,7 +103,7 @@ void show_help_and_exit() {
 }
 
 void show_version_and_exit() {
-	printf("Svndumpsanitizer %s\n", SDS_VERSION);
+	printf("svndumpsanitizer %s\n", SDS_VERSION);
 	exit(0);
 }
 
@@ -565,8 +565,8 @@ int main(int argc, char **argv) {
 						temp_str = str_malloc(strlen(include[k]) + 2);
 						strcpy(temp_str, include[k]);
 						strcat(temp_str, "/");
-						temp_str2 = str_malloc(strlen(revisions[i].nodes[j].path) + 2);
-						strcpy(temp_str2, revisions[i].nodes[j].path);
+						temp_str2 = str_malloc(strlen(revisions[i].nodes[j].copyfrom) + 2);
+						strcpy(temp_str2, revisions[i].nodes[j].copyfrom);
 						strcat(temp_str2, "/");
 						if (strcmp(revisions[i].nodes[j].copyfrom, include[k]) == 0 || starts_with(revisions[i].nodes[j].copyfrom, temp_str) || starts_with(include[k], temp_str2)) {
 							should_do = 0;
