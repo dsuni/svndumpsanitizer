@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 1.2.9, released 13 Sep 2015
+	svndumpsanitizer version 1.2.10, released 19 Sep 2015
 
 	Copyright 2011,2012,2013,2014,2015 Daniel Suni
 
@@ -33,7 +33,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "1.2.9"
+#define SDS_VERSION "1.2.10"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -700,7 +700,7 @@ int main(int argc, char **argv) {
 
 	// Remove any directory entries that should no longer exist with the redefined root
 	if (redefined_root != NULL) {
-		for (i = 0; i < rev_len ; ++i) {
+		for (i = 0; i < rev_len; ++i) {
 			for (j = 0; j < revisions[i].size; ++j) {
 				if (revisions[i].nodes[j].wanted) {
 					temp_str = str_malloc(strlen(redefined_root) + 2);
@@ -720,6 +720,60 @@ int main(int argc, char **argv) {
 							}
 						}
 					}
+					free(temp_str);
+				}
+			}
+		}
+		// Check whether add or delete actions should be omitted due to overlapping paths when redefining root
+		for (i = rev_len - 1; i >= 0; --i) {
+			for (j = revisions[i].size - 1; j >= 0; --j) {
+				if (revisions[i].nodes[j].wanted && revisions[i].nodes[j].action == ADD && revisions[i].nodes[j].copyfrom == NULL) {
+					temp_str = reduce_path(redefined_root, revisions[i].nodes[j].path);
+					// Check backwards for overlapping adds
+					for (k = i; k >= 0; --k) {
+						for (l = 0; l < revisions[k].size; ++l) {
+							if (revisions[k].nodes[l].wanted && (revisions[k].nodes[l].action == DELETE || revisions[k].nodes[l].action == ADD)) {
+								temp_str2 = reduce_path(redefined_root, revisions[k].nodes[l].path);
+								if (strcmp(temp_str, temp_str2) == 0 && !(k == i && l >= j)) {
+									if (revisions[k].nodes[l].action == ADD) {
+										revisions[i].nodes[j].wanted = 0;
+									}
+									free(temp_str2);
+									goto next_add;
+								}
+								free(temp_str2);								
+							}
+						}
+					}
+				next_add:
+					free(temp_str);
+				}
+				// Check for overlapping deletes
+				else if (revisions[i].nodes[j].wanted && revisions[i].nodes[j].action == ADD && revisions[i].nodes[j].copyfrom != NULL) {
+					temp_str = reduce_path(redefined_root, revisions[i].nodes[j].path);
+					if (strcmp(temp_str, revisions[i].nodes[j].copyfrom) == 0) {
+						for (k = i; k < rev_len; ++k) {
+							for (l = 0; l < revisions[k].size; ++l) {
+								if (revisions[k].nodes[l].wanted && revisions[k].nodes[l].action == DELETE) {
+									temp_str2 = str_malloc(strlen(revisions[i].nodes[j].copyfrom) + 2);
+									temp_str2[0] = '\0';
+									tok_str = strtok(revisions[i].nodes[j].copyfrom, "/");
+									while (tok_str != NULL) {
+										strcat(temp_str2, tok_str);
+										if (strcmp(revisions[k].nodes[l].path, temp_str2) == 0) {
+											revisions[k].nodes[l].wanted = 0;
+											free(temp_str2);
+											goto next_del;
+										}
+										strcat(temp_str2,"/");
+										tok_str = strtok(NULL, "/");
+									}
+									free(temp_str2);
+								}
+							}
+						}
+					}
+				next_del:
 					free(temp_str);
 				}
 			}
