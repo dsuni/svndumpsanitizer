@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 1.2.10, released 19 Sep 2015
+	svndumpsanitizer version 1.2.11, released 25 Sep 2015
 
 	Copyright 2011,2012,2013,2014,2015 Daniel Suni
 
@@ -33,7 +33,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "1.2.10"
+#define SDS_VERSION "1.2.11"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -113,6 +113,13 @@ char* str_malloc(size_t sz) {
 		exit_with_error("malloc failed", 2);
 	}
 	return str;
+}
+
+char* add_slash_to(char *str) {
+	char* new_str = str_malloc(strlen(str) + 2);
+	strcpy(new_str, str);
+	strcat(new_str, "/");
+	return new_str;
 }
 
 // Returns 1 if string a starts with string b, otherwise 0
@@ -335,9 +342,7 @@ int main(int argc, char **argv) {
 		exit_with_error("You may not redefine root when using excludes", 1);
 	}
 	if (redefined_root != NULL) {
-		temp_str = str_malloc(strlen(redefined_root) + 2);
-		strcpy(temp_str, redefined_root);
-		strcat(temp_str, "/");
+		temp_str = add_slash_to(redefined_root);
 		for (i = 0; i < inc_len; ++i) {
 			if (!(strcmp(include[i], redefined_root) == 0 || starts_with(include[i], temp_str))) {
 				fclose(infile);
@@ -460,9 +465,7 @@ int main(int argc, char **argv) {
 		for (i = rev_len - 1; i >= 0; --i) {
 			for (j = 0; j < revisions[i].size; ++j) {
 				for (k = 0; k < exc_len; ++k) {
-					temp_str = str_malloc(strlen(exclude[k]) + 2);
-					strcpy(temp_str, exclude[k]);
-					strcat(temp_str, "/");
+					temp_str = add_slash_to(exclude[k]);
 					if (strcmp(revisions[i].nodes[j].path, exclude[k]) == 0 || starts_with(revisions[i].nodes[j].path, temp_str)) {
 						revisions[i].nodes[j].wanted = 0;
 					}
@@ -494,12 +497,8 @@ int main(int argc, char **argv) {
 				if (revisions[i].nodes[j].wanted && revisions[i].nodes[j].copyfrom != NULL) {
 					should_do = 0;
 					for (k = 0; k < exc_len; ++k) {
-						temp_str = str_malloc(strlen(exclude[k]) + 2);
-						strcpy(temp_str, exclude[k]);
-						strcat(temp_str, "/");
-						temp_str2 = str_malloc(strlen(revisions[i].nodes[j].copyfrom) + 2);
-						strcpy(temp_str2, revisions[i].nodes[j].copyfrom);
-						strcat(temp_str2, "/");
+						temp_str = add_slash_to(exclude[k]);
+						temp_str2 = add_slash_to(revisions[i].nodes[j].copyfrom);
 						if (strcmp(revisions[i].nodes[j].copyfrom, exclude[k]) == 0 || starts_with(revisions[i].nodes[j].copyfrom, temp_str) || starts_with(exclude[k], temp_str2)) {
 							should_do = 1;
 						}
@@ -524,12 +523,8 @@ int main(int argc, char **argv) {
 		for (i = rev_len - 1; i >= 0; --i) {
 			for (j = 0 ; j < revisions[i].size ; ++j) {
 				for (k = 0; k < inc_len; ++k) {
-					temp_str = str_malloc(strlen(include[k]) + 2);
-					strcpy(temp_str, include[k]);
-					strcat(temp_str, "/");
-					temp_str2 = str_malloc(strlen(revisions[i].nodes[j].path) + 2);
-					strcpy(temp_str2, revisions[i].nodes[j].path);
-					strcat(temp_str2, "/");
+					temp_str = add_slash_to(include[k]);
+					temp_str2 = add_slash_to(revisions[i].nodes[j].path);
 					if (strcmp(revisions[i].nodes[j].path, include[k]) == 0 || starts_with(revisions[i].nodes[j].path, temp_str) || starts_with(include[k], temp_str2)) {
 						revisions[i].nodes[j].wanted = 1;
 					}
@@ -549,7 +544,7 @@ int main(int argc, char **argv) {
 						if (strcmp(revisions[i].nodes[j].path, temp_str) == 0) {
 							revisions[i].nodes[j].wanted = 1;
 						}
-						strcat(temp_str,"/");
+						strcat(temp_str, "/");
 						tok_str = strtok(NULL, "/");
 					}
 					if (starts_with(revisions[i].nodes[j].path, temp_str)) {
@@ -562,12 +557,8 @@ int main(int argc, char **argv) {
 				if (revisions[i].nodes[j].wanted && revisions[i].nodes[j].copyfrom != NULL) {
 					should_do = 1;
 					for (k = 0; k < inc_len; ++k) {
-						temp_str = str_malloc(strlen(include[k]) + 2);
-						strcpy(temp_str, include[k]);
-						strcat(temp_str, "/");
-						temp_str2 = str_malloc(strlen(revisions[i].nodes[j].copyfrom) + 2);
-						strcpy(temp_str2, revisions[i].nodes[j].copyfrom);
-						strcat(temp_str2, "/");
+						temp_str = add_slash_to(include[k]);
+						temp_str2 = add_slash_to(revisions[i].nodes[j].copyfrom);
 						if (strcmp(revisions[i].nodes[j].copyfrom, include[k]) == 0 || starts_with(revisions[i].nodes[j].copyfrom, temp_str) || starts_with(include[k], temp_str2)) {
 							should_do = 0;
 						}
@@ -617,9 +608,7 @@ int main(int argc, char **argv) {
 					if (relevant_paths[k] != NULL && strcmp(revisions[i].nodes[j].path, relevant_paths[k]) == 0) {
 						revisions[i].nodes[j].wanted = 1;
 						for (l = 0; l < rel_len; ++l) {
-							temp_str = str_malloc(strlen(revisions[i].nodes[j].path) + 2);
-							strcpy(temp_str, revisions[i].nodes[j].path);
-							strcat(temp_str, "/");
+							temp_str = add_slash_to(revisions[i].nodes[j].path);
 							if (relevant_paths[l] != NULL && (strcmp(relevant_paths[l], revisions[i].nodes[j].path) == 0 || starts_with(relevant_paths[l], temp_str))) {
 								free(relevant_paths[l]);
 								relevant_paths[l] = NULL;
@@ -640,9 +629,7 @@ int main(int argc, char **argv) {
 	for (i = 0; i < rel_len; ++i) {
 		if (include == NULL && relevant_paths[i] != NULL) {
 			for (j = 0; j < exc_len; ++j) {
-				temp_str = str_malloc(strlen(exclude[j]) + 2);
-				strcpy(temp_str, exclude[j]);
-				strcat(temp_str, "/");
+				temp_str = add_slash_to(exclude[j]);
 				if (strcmp(relevant_paths[i], exclude[j]) == 0 || starts_with(relevant_paths[i], temp_str)) {
 					if ((no_longer_relevant = (char**)realloc(no_longer_relevant, (no_len + 1) * sizeof(char*))) == NULL) {
 						exit_with_error("realloc failed", 2);
@@ -659,9 +646,7 @@ int main(int argc, char **argv) {
 			strcpy(temp_str, relevant_paths[i]);
 			strcat(temp_str, "/");
 			for (j = 0; j < inc_len; ++j) {
-				temp_str2 = str_malloc(strlen(include[j]) + 2);
-				strcpy(temp_str2, include[j]);
-				strcat(temp_str2, "/");
+				temp_str2 = add_slash_to(include[j]);
 				if (!(strcmp(relevant_paths[i], include[j]) == 0 || starts_with(relevant_paths[i], temp_str2) || starts_with(include[j], temp_str))) {
 					if ((no_longer_relevant = (char**)realloc(no_longer_relevant, (no_len + 1) * sizeof(char*))) == NULL) {
 						exit_with_error("realloc failed", 2);
@@ -679,12 +664,8 @@ int main(int argc, char **argv) {
 	for (i = 0; i < no_len; ++i) {
 		if (no_longer_relevant[i] != NULL) {
 			for (j = 0; j < inc_len ; ++j) {
-				temp_str = str_malloc(strlen(include[j]) + 2);
-				strcpy(temp_str, include[j]);
-				strcat(temp_str, "/");
-				temp_str2 = str_malloc(strlen(no_longer_relevant[i]) + 2);
-				strcpy(temp_str2, no_longer_relevant[i]);
-				strcat(temp_str2, "/");
+				temp_str = add_slash_to(include[j]);
+				temp_str2 = add_slash_to(no_longer_relevant[i]);
 				if (strcmp(no_longer_relevant[i], include[j]) == 0 || starts_with(no_longer_relevant[i], temp_str) || starts_with(include[j], temp_str2)) {
 					free(no_longer_relevant[i]);
 					no_longer_relevant[i] = NULL;
@@ -703,9 +684,7 @@ int main(int argc, char **argv) {
 		for (i = 0; i < rev_len; ++i) {
 			for (j = 0; j < revisions[i].size; ++j) {
 				if (revisions[i].nodes[j].wanted) {
-					temp_str = str_malloc(strlen(redefined_root) + 2);
-					strcpy(temp_str, redefined_root);
-					strcat(temp_str, "/");
+					temp_str = add_slash_to(redefined_root);
 					for (k = strlen(temp_str) - 1; k > 0; --k) {
 						if (temp_str[k] == '/') {
 							temp_str[k] = '\0';
@@ -792,9 +771,7 @@ int main(int argc, char **argv) {
 	for (i = 0; i < no_len; ++i) {
 		if (no_longer_relevant[i] != NULL) {
 			delete_needed = 1;
-			temp_str = str_malloc(strlen(no_longer_relevant[i]) + 2);
-			strcpy(temp_str, no_longer_relevant[i]);
-			strcat(temp_str, "/");
+			temp_str = add_slash_to(no_longer_relevant[i]);
 			for (j = 0; j < no_len; ++j) {
 				if (i != j && no_longer_relevant[j] != NULL && (starts_with(no_longer_relevant[j], temp_str) || strcmp(no_longer_relevant[i], no_longer_relevant[j]) == 0)) {
 					free(no_longer_relevant[j]);
