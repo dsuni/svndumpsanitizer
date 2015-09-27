@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 1.2.11, released 25 Sep 2015
+	svndumpsanitizer version 1.2.12, released 27 Sep 2015
 
 	Copyright 2011,2012,2013,2014,2015 Daniel Suni
 
@@ -33,7 +33,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "1.2.11"
+#define SDS_VERSION "1.2.12"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -558,12 +558,30 @@ int main(int argc, char **argv) {
 					should_do = 1;
 					for (k = 0; k < inc_len; ++k) {
 						temp_str = add_slash_to(include[k]);
-						temp_str2 = add_slash_to(revisions[i].nodes[j].copyfrom);
-						if (strcmp(revisions[i].nodes[j].copyfrom, include[k]) == 0 || starts_with(revisions[i].nodes[j].copyfrom, temp_str) || starts_with(include[k], temp_str2)) {
+						if (strcmp(revisions[i].nodes[j].copyfrom, include[k]) == 0 || starts_with(revisions[i].nodes[j].copyfrom, temp_str)) {
 							should_do = 0;
+							free(temp_str);
+							break;
 						}
 						free(temp_str);
-						free(temp_str2);
+						temp_str = add_slash_to(revisions[i].nodes[j].path);
+						if (starts_with(include[k], temp_str)) {
+							temp_str2 = str_malloc(strlen(revisions[i].nodes[j].copyfrom) + strlen(include[k]) + 2);
+							strcpy(temp_str2, revisions[i].nodes[j].copyfrom);
+							strcat(temp_str2, "/");
+							strcat(temp_str2, reduce_path(revisions[i].nodes[j].path, include[k]));
+							if ((mustkeep = (char**)realloc(mustkeep, (must_len + 1) * sizeof(char*))) == NULL) {
+								exit_with_error("realloc failed", 2);
+							}
+							mustkeep[must_len] = str_malloc(strlen(temp_str2) + 1);
+							strcpy(mustkeep[must_len], temp_str2);
+							++must_len;
+							should_do = 0;
+							free(temp_str);
+							free(temp_str2);
+							break;
+						}
+						free(temp_str);
 					}
 					if (should_do) {
 						if ((mustkeep = (char**)realloc(mustkeep, (must_len + 1) * sizeof(char*))) == NULL) {
