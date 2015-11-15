@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 1.2.12, released 27 Sep 2015
+	svndumpsanitizer version 2.0.0 Beta 1, released 15 Nov 2015
 
 	Copyright 2011,2012,2013,2014,2015 Daniel Suni
 
@@ -31,9 +31,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
-#define SDS_VERSION "1.2.12"
+#define SDS_VERSION "2.0.0 Beta 1"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -47,18 +46,46 @@
 
 // A node from an svn dump file can contain a lot of data. This
 // struct only holds the parts relevant to filtering.
-typedef struct {
+typedef struct node {
+	struct node **deps;
 	char *path;
 	char *copyfrom;
-	int action;
-	int wanted;
+	int copyfrom_rev;
+	int revision;
+	unsigned short dep_len;
+	char action;
+	char wanted;
 } node;
 
 typedef struct {
 	node *nodes;
+	node **fakes;
 	int size;
-	int number; // Used only if the revision number is changed due to empty revisions being dropped.
+	int fake_size;
+	int number;
 } revision;
+
+typedef struct repotree {
+	struct repotree *children;
+	char *path;
+	node **map;
+	unsigned short chi_len;
+	unsigned short map_len;
+} repotree;
+
+typedef struct {
+	char **path;
+	int *from;
+	int *to;
+	unsigned short size;
+} mergedata;
+
+typedef struct {
+	mergedata *data;
+	int revision;
+	int node;
+	int orig_size;
+} mergeinfo;
 
 void exit_with_error(char *message, int exit_code) {
 	fprintf(stderr, "ERROR: %s\n", message);
@@ -89,14 +116,7 @@ void show_help_and_exit() {
 	printf("\t\tThe remaining revisions will be renumbered. You will lose the commit messages for\n");
 	printf("\t\tthe dropped revisions.\n\n");
 	printf("\t-r, --redefine-root [PATH]\n");
-	printf("\t\tRedefines the repository root. This option can only be used with the include option.\n");
-	printf("\t\tThe path provided to this option must be the beginning of (or the whole) path\n");
-	printf("\t\tprovided to the include option. If more than one path is provided you can provide\n");
-	printf("\t\ta path only up to the point where the paths diverge.\n\n");
-	printf("\t\tE.g.\n\t\t\"-n foo/bar/trunk -r foo/bar\" - OK. (This is probably the typical case.)\n");
-	printf("\t\t\"-n foo/bar/trunk -r foo/bar/trunk\" - OK.\n");
-	printf("\t\t\"-n foo/bar/trunk foo/baz/trunk -r foo\" - OK.\n");
-	printf("\t\t\"-n foo/bar/trunk foo/baz/trunk -r foo/bar\" - WRONG.\n\n");
+	printf("\t\tDOES NOT WORK WITH THIS VERSION. Will display a warning and do nothing if used.\n\n");
 	printf("\t-v, --version\n");
 	printf("\t\tPrint version and exit.\n");
 	exit(0);
@@ -105,6 +125,17 @@ void show_help_and_exit() {
 void show_version_and_exit() {
 	printf("svndumpsanitizer %s\n", SDS_VERSION);
 	exit(0);
+}
+
+/*******************************************************************************
+ *
+ * Misc helper functions
+ *
+ ******************************************************************************/
+
+void print_progress(FILE *out, char *message, int progress) {
+	fprintf(out, "%s %d\r", message, progress);
+	fflush(out);
 }
 
 char* str_malloc(size_t sz) {
@@ -132,6 +163,22 @@ int starts_with(char *a, char *b) {
 		++i;
 	}
 	return 1;
+}
+
+// Tries to match the beginning of a path to a name. Returns 1 if successful, otherwise 0.
+// E.g. foo/bar/baz will match foo, or foo/bar but not foobar. 
+int matches_path_start(char *path, char *name) {
+	int i = 0;
+	while (name[i] != '\0') {
+		if (path[i] != name[i]) {
+			return 0;
+		}
+		++i;
+	}
+	if (path[i] == '/' || path[i] == '\0') {
+		return 1;
+	}
+	return 0;
 }
 
 // Reduces path as far as the redefined root allows. E.g. if foo/trunk is the redefined root
@@ -168,18 +215,504 @@ char* reduce_path(char* redefined_root, char* path) {
 	return str;
 }
 
+// Returns the new file path after a copyfrom. E.g. New dir = branches/foo, old file is
+// trunk/project/bar.txt branches/foo is copied from trunk. The method should return the
+// location of the file after the copyfrom, i.e. branches/foo/project/bar.txt
+char* get_dir_after_copyfrom(char *new, char *old, char *copyfrom) {
+	char* temp_str = reduce_path(copyfrom, old);
+	char* path = str_malloc(strlen(new) + strlen(temp_str) + 2);
+	strcpy(path, new);
+	strcat(path, "/");
+	strcat(path, temp_str);
+	free(temp_str);
+	return path;
+}
+
+void init_new_node(node *n) {
+	n[0].deps = NULL;
+	n[0].path = NULL;
+	n[0].copyfrom = NULL;
+	n[0].copyfrom_rev = 0;
+	n[0].revision = 0;
+	n[0].action = 0;
+	n[0].wanted = 0;
+	n[0].dep_len = 0;
+}
+
+node* get_new_node() {
+	node *n;
+	if ((n = (node*)malloc(sizeof(node))) == NULL) {
+		exit_with_error("malloc failed", 2);
+	}
+	init_new_node(n);
+	return n;
+}
+
+// Cleans up memory reserved by tree (except root node's children)
+void free_tree(repotree *rt) {
+	int i;
+	for (i = 0; i < rt->chi_len; ++i) {
+		if (rt->children[i].chi_len > 0) {
+			free_tree(&rt->children[i]);
+		}
+	}
+	for (i = 0; i < rt->chi_len; ++i) {
+		free(rt->children[i].path);
+		free(rt->children[i].map);
+		free(rt->children[i].children);
+	}
+}
+
+// Returns the number of digits in an int
+int num_len(int num) {
+	int i = 0;
+	do {
+		num /= 10;
+		++i;
+	} while (num);
+	return i;
+}
+
+/*******************************************************************************
+ *
+ * Include/exclude-related functions
+ *
+ ******************************************************************************/
+
+int is_excluded(char *path, char **excludes, char **ex_slash, int ex_len) {
+	int i;
+	for (i = 0; i < ex_len; ++i) {
+		if (strcmp(path, excludes[i]) == 0 || starts_with(path, ex_slash[i])) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+// Dumb exclude that just marks excludes as unwanted. We'll have to come back
+// later to check which ones are still needed due to dependencies
+void parse_exclude_preparation(revision *r, char **excludes, char **ex_slash, int rev_len, int ex_len) {
+	int i, j;
+	for (i = 0; i < rev_len; ++i) {
+		for (j = 0; j < r[i].size; ++j) {
+			if (is_excluded(r[i].nodes[j].path, excludes, ex_slash, ex_len)) {
+				r[i].nodes[j].wanted = 0;
+			}
+		}
+		for (j = 0; j < r[i].fake_size; ++j) {
+			if (is_excluded(r[i].fakes[j]->path, excludes, ex_slash, ex_len)) {
+				r[i].fakes[j]->wanted = 0;
+			}
+		}
+	}
+}
+
+// Sets the node and all its dependencies to "wanted"
+void set_wanted(node *n) {
+	int i;
+	// Been here, done that...
+	if (n->wanted == 1) {
+		return;
+	}
+	n->wanted = 1;
+	for (i = 0; i < n->dep_len; ++i) {
+		set_wanted(n->deps[i]);
+	}
+}
+
+// Returns the node that is relevant to the revision in question, or NULL if no such node exists.
+node* get_node_at_revision(node **map, int rev, int map_len) {
+	int i;
+	for (i = map_len - 1; i >=0; --i) {
+		if (map[i]->revision <= rev) {
+			return map[i];
+		}
+	}
+	return NULL;
+}
+
+// Returns the ADD node that is relevant to the revision in question, or NULL if no such node exists.
+node* get_add_node_at_revision(node **map, int rev, int map_len) {
+	int i;
+	for (i = map_len - 1; i >=0; --i) {
+		if (map[i]->revision <= rev) {
+			if (map[i]->action == ADD) {
+				return map[i];
+			}
+			if (map[i]->action == DELETE) {
+				return NULL;
+			}
+		}
+	}
+	return NULL;
+}
+
+/*******************************************************************************
+ *
+ * Repotree/dependency-related functions
+ *
+ ******************************************************************************/
+
+// Returns subtree where the root node matches the provided path.
+repotree* get_subtree(repotree *rt, char *path, int fail_if_not_found) {
+	int i = 0;
+	while (i < rt->chi_len) {
+		if (matches_path_start(path, rt->children[i].path)) {
+			if (strcmp(path, rt->children[i].path) == 0) {
+				return &rt->children[i];
+			}
+			rt = &rt->children[i];
+			i = -1;
+		}
+		++i;
+	}
+	if (fail_if_not_found) {
+		fprintf(stderr, "Could not find requested subtree: %s\n", path);
+		exit_with_error("Internal logic error.", 3);
+	}
+	return NULL;
+}
+
+void restore_delete_node_if_needed(repotree *rt, node *n) {
+	repotree *target = get_subtree(rt, n->path, 1);
+	int i = target->map_len - 1;
+	// Find the right pointer...
+	while (i >= 0 && target->map[i] != n) {
+		--i;
+	}
+	--i; // And back up to the previous one...
+	while (i >= 0 && target->map[i]->action != DELETE) {
+		if (target->map[i]->wanted) {
+			n->wanted = 2;
+			return;
+		}
+		--i;
+	}
+}
+
+void add_dependency(node *master, node *slave) {
+	if ((slave->deps = (node**)realloc(slave->deps, (slave->dep_len + 1) * sizeof(node*))) == NULL) {
+		exit_with_error("realloc failed", 2);
+	}
+	slave->deps[slave->dep_len] = master;
+	++slave->dep_len;
+}
+
+// Adds dependency to the relevant parent directory node. I.e. foo/bar/baz.txt depends
+// on foo/bar, and foo/bar depends on foo. foo doesn't depend on anything.
+void add_dir_dep_to_node(repotree *rt, node *n, int rev) {
+	int i = strlen(n->path);
+	char *path = str_malloc(i + 1);
+	repotree *target;
+	node *temp_n;
+	strcpy(path, n->path);
+	while (i && path[i] != '/') {
+		--i;
+	}
+	// The node exists in root, and doesn't have this dependency.
+	if (!i) {
+		free(path);
+		return;
+	}
+	path[i] = '\0';
+	target = get_subtree(rt, path, 1);
+	free(path);
+	temp_n = get_add_node_at_revision(target->map, rev, target->map_len);
+	if (temp_n && temp_n->action != DELETE) {
+		add_dependency(temp_n, n);
+	}
+	else {
+		fprintf(stderr, "Tried to add dependency to non-existing parent/revision. %d %s\n", rev, n->path);
+		exit_with_error("Internal logic error", 3);
+	}
+}
+
+// Adds dependency to previous version of file (which can actually be a dir).
+// Only "ADD" nodes with copyfrom attribute should need this. All others should be
+// handled immediately when the event is added.
+void add_file_dep_to_node(repotree *rt, node *n) {
+	repotree *target;
+	node *temp_n;
+	if (n->action != ADD || !n->copyfrom) {
+		return;
+	}
+	target = get_subtree(rt, n->copyfrom, 1);
+	temp_n = get_node_at_revision(target->map, n->copyfrom_rev, target->map_len);
+	if (temp_n && temp_n->action != DELETE) {
+		add_dependency(temp_n, n);
+	}
+	else {
+		fprintf(stderr, "Tried to add dependency to non-existing parent/revision. %d %d %d %s %s\n", n->revision, n->copyfrom_rev, n->action, n->path, n->copyfrom);
+		exit_with_error("Internal logic error", 3);
+	}
+}
+
+// If a file is merged into another we need to add a dependency...
+void add_merge_dep_to_node(repotree *rt, node *n, char *mergefrom, char *mergeto, int rev) {
+	repotree *subtree;
+	node *temp_n;
+	int alloc = 0;
+	char *temp = add_slash_to(mergeto);
+	// Check that file is actually relevant to merge before proceeding.
+	if (!(starts_with(n->path, temp) || strcmp(n->path, mergeto) == 0)) {
+		free(temp);
+		return;
+	}
+	free(temp);
+	if (strcmp(n->path, mergeto) == 0) {
+		temp = mergefrom;
+	}
+	else {
+		temp = get_dir_after_copyfrom(mergefrom, n->path, mergeto);
+		alloc = 1;
+	}
+	// Get subtree without failing on error, because svn mergeinfo is an unholy mess.
+	subtree = get_subtree(rt, temp, 0);
+	if (alloc) {
+		free(temp);
+	}
+	if (!subtree) {
+		return;
+	}
+	temp_n = get_node_at_revision(subtree->map, rev, subtree->map_len);
+	if (temp_n && temp_n->action != DELETE) {
+		add_dependency(temp_n, n);
+	}
+}
+
+// Add event to repo tree. If the path in question does not yet exist, we add it to the tree.
+// If it does exists we update all map nodes from the current revision forward to the current
+// node, or in case of DELETE node, set them to NULL. Dependencies are added for non-ADD-type
+// nodes in case another event affects the same path during the same revision. ADD-types are
+// either new files (=doesn't need this dependency) or copyfrom instances (=needs different
+// dependecy, handled elsewhere).
+void add_event(repotree *rt, node *n) { //, char *str, int rev_len) {
+	int i;
+	for (i = 0; i < rt->chi_len; ++i) {
+		if (matches_path_start(n->path, rt->children[i].path)) {
+			if (strcmp(n->path, rt->children[i].path) != 0) {
+				//add_event(&rt->children[i], n, &str[j + 1], rev_len);
+				add_event(&rt->children[i], n); //, str, rev_len);
+			}
+			else {
+				// Make everyone use the same pointer to save memory (important with huge 100GB+ repos)
+				if (n->path != rt->children[i].path) {
+					free(n->path);
+					n->path = rt->children[i].path;
+				}
+				if (n->action != ADD) {
+					add_dependency(rt->children[i].map[rt->children[i].map_len - 1], n);
+				}
+				if ((rt->children[i].map = (node**)realloc(rt->children[i].map, (rt->children[i].map_len + 1) * sizeof(node*))) == NULL) {
+					exit_with_error("realloc failed", 2);
+				}
+				rt->children[i].map[rt->children[i].map_len] = n;
+				++rt->children[i].map_len;
+			}
+			return;
+		}
+	}
+	// New path - add it to tree.
+	if ((rt->children = (repotree*)realloc(rt->children, (rt->chi_len + 1) * sizeof(repotree))) == NULL) {
+		exit_with_error("realloc failed", 2);
+	}
+	rt->children[rt->chi_len].path = n->path;
+	rt->children[rt->chi_len].children = NULL;
+	rt->children[rt->chi_len].chi_len = 0;
+	if ((rt->children[rt->chi_len].map = (node**)malloc(sizeof(node*))) == NULL) {
+		exit_with_error("malloc failed", 2);
+	}
+	rt->children[rt->chi_len].map[0] = n;
+	rt->children[rt->chi_len].map_len = 1;
+	++rt->chi_len;
+}
+
+// Returns a list of node pointers present in a specific part of the tree at a specific revision.
+// The number of nodes in the list will be "returned" through the "size" pointer.
+node** get_relevant_nodes_at_revision(repotree *rt, int rev, int *size) {
+	int i, j, ch_size;
+	int self_size = 0;
+	node **nptr, **nptr2;
+	node *n;
+	for (i = 0; i < rt->chi_len; ++i) {
+		n = get_node_at_revision(rt->children[i].map, rev, rt->children[i].map_len);
+		if (n && n->action != DELETE) {
+			++self_size;
+		}
+	}
+	if (!self_size) {
+		*size = 0;
+		return NULL;
+	}
+	if ((nptr = (node**)malloc(self_size * sizeof(node*))) == NULL) {
+		exit_with_error("malloc failed", 2);
+	}
+	self_size = 0;
+	for (i = 0; i < rt->chi_len; ++i) {
+		n = get_node_at_revision(rt->children[i].map, rev, rt->children[i].map_len);
+		if (n && n->action != DELETE) {
+			nptr[self_size] = n;
+			++self_size;
+		}
+	}
+	for (i = 0; i < rt->chi_len; ++i) {
+		n = get_node_at_revision(rt->children[i].map, rev, rt->children[i].map_len);
+		if (n && n->action != DELETE) {
+			nptr2 = get_relevant_nodes_at_revision(&rt->children[i], rev, &ch_size);
+			if (nptr2) {
+				if ((nptr = (node**)realloc(nptr, (ch_size + self_size) * sizeof(node*))) == NULL) {
+					exit_with_error("realloc failed", 2);
+				}
+				for (j = 0; j < ch_size; ++j) {
+					nptr[self_size] = nptr2[j];
+					++self_size;
+				}
+				free(nptr2);
+			}
+		}
+	}
+	*size = self_size;
+	return nptr;
+}
+
+/*******************************************************************************
+ *
+ * Mergeinfo-related functions
+ *
+ ******************************************************************************/
+
+// Takes a string where newlines have been replaced with NULL chars.
+// "Returns" the size of the data through the int pointer.
+mergedata* add_mergedata(char *minfo, int *size) {
+	mergedata *md;
+	int i = 0;
+	int len, j;
+	if ((md = (mergedata*)malloc(sizeof(mergedata))) == NULL) {
+		exit_with_error("malloc failed", 2);
+	}
+	md->size = 0;
+	md->path = NULL;
+	md->from = NULL;
+	md->to = NULL;
+	while (minfo[i] == '/') {
+		len = strlen(&minfo[i]);
+		if ((md->path = (char**)realloc(md->path, (md->size + 1) * sizeof(char*))) == NULL) {
+			exit_with_error("realloc failed", 2);
+		}
+		if ((md->from = (int*)realloc(md->from, (md->size + 1) * sizeof(int))) == NULL) {
+			exit_with_error("realloc failed", 2);
+		}
+		if ((md->to = (int*)realloc(md->to, (md->size + 1) * sizeof(int))) == NULL) {
+			exit_with_error("realloc failed", 2);
+		}
+		j = i + len - 1;
+		while (minfo[j] >= 48 && minfo[j] <= 57) {
+			--j;
+		}
+		md->to[md->size] = atoi(&minfo[j + 1]);
+		while (minfo[j] != ':') {
+			if (minfo[j] == ',' || minfo[j] == '-') {
+				minfo[j] = '\0';
+			}
+			--j;
+		}
+		md->from[md->size] = atoi(&minfo[j + 1]);
+		minfo[j] = '\0';
+		md->path[md->size] = str_malloc(strlen(&minfo[i]));
+		++i; // For some reason mergeinfo paths start with a slash, even though no other svn paths do.
+		strcpy(md->path[md->size], &minfo[i]);
+		i += len; // Step past the string and the NULL that terminates it.
+		++md->size;
+	}
+	*size = i;
+	return md;
+}
+
+mergeinfo* create_mergeinfo(mergeinfo *mi, char *minfo, int rev, int nod, int *mi_len) {
+	int orig;
+	int i = 0;
+	// Parse past newlines turned NULL, and "K 13" line...
+	while (minfo[i] == '\0' || minfo[i] == 'K' || minfo[i] == ' ' || minfo[i] == '1' || minfo[i] == '3') {
+		++i;
+	}
+	// Mismatch here means it's not a mergeinfo. Abort.
+	if (strcmp(&minfo[i], "svn:mergeinfo") != 0) {
+		return mi;
+	}
+	i += 14; // 13 chars + NULL
+	// Empty value == Abort. Why does svn even add this kind of manure to the dump file?
+	if (strcmp(&minfo[i], "V 0") == 0) {
+		return mi;
+	}
+	// Otherwise go past the "V (whatever)" line...
+	while (minfo[i] != '\0') {
+		++i;
+	}
+	++i;
+	if ((mi = (mergeinfo*)realloc(mi, (*mi_len + 1) * sizeof(mergeinfo))) == NULL) {
+		exit_with_error("realloc failed", 2);
+	}
+	mi[*mi_len].data = add_mergedata(&minfo[i], &orig);
+	mi[*mi_len].revision = rev;
+	mi[*mi_len].node = nod;
+	mi[*mi_len].orig_size = i + orig + 9; // "PROPS-END"
+	++*mi_len;
+	return mi;
+}
+
+// Returns the number of bytes the final row will have, including newline.
+int get_mergerow_size(mergedata *data, revision *revisions, int row) {
+	int to, from;
+	int size = 0;
+	to = revisions[data->to[row]].number;
+	from = revisions[data->from[row]].number;
+	if (to == from) {
+		size += num_len(to) + 1; // ":XXX"
+	}
+	else {
+		size += num_len(to) + num_len(from) + 2; // ":XXX-YYY"
+	}
+	size += strlen(data->path[row]) + 2; // "/...\n"
+	return size;
+}
+
+void write_mergeinfo(FILE *outfile, mergedata *data, revision *revisions, int orig_size, off_t con_len, off_t pcon_len) {
+	int i, v_size, diff, to, from;
+	int size = 0;
+	for (i = 0; i < data->size; ++i) {
+		size += get_mergerow_size(data, revisions, i);
+	}
+	v_size = size - 1; // The last (first?) newline doesn't count towards value length.
+	size += num_len(v_size) + 3; // "V XXX\n"
+	size += 30; // "\nK 13\nsvn:mergeinfo\n"  ... "\nPROPS-END"
+	diff = orig_size - size;
+	fprintf(outfile, "Prop-content-length: %d\nContent-length: %d\n\nK 13\nsvn:mergeinfo\nV %d\n",
+					(int)pcon_len - diff, (int)con_len - diff, v_size);
+	for (i = 0; i < data->size; ++i) {
+		to = revisions[data->to[i]].number;
+		from = revisions[data->from[i]].number;
+		if (to == from) {
+			fprintf(outfile, "/%s:%d\n", data->path[i], to);
+		}
+		else {
+			fprintf(outfile, "/%s:%d-%d\n", data->path[i], from, to);
+		}
+	}
+}
+
+/*******************************************************************************
+ *
+ * Main method
+ *
+ ******************************************************************************/
+
 int main(int argc, char **argv) {
 	// Misc temporary variables
-	int i, j, k, l, ch, want_by_default, should_do, new_number, empty, temp_int;
-	off_t offset,con_len;
-	time_t rawtime;
-	struct tm *ptm;
+ 	int i, j, k, ch, want_by_default, new_number, empty, temp_int, is_dir;
+	off_t offset, con_len, pcon_len;
 	char *temp_str = NULL;
 	char *temp_str2 = NULL;
-	char *tok_str = NULL;
-	int steps = 6;
-	int cur_step = 1;
-	int delete_needed = 0;
+	char *minfo = NULL;
 	int to_file = 1;
 
 	// Variables to help analyze user input 
@@ -196,16 +729,13 @@ int main(int argc, char **argv) {
 	FILE *messages = stdout;
 	char **include = NULL; // Holds the paths the user wants to keep
 	char **exclude = NULL; // Holds the paths the user wants to discard
-	char **mustkeep = NULL; // For storing the paths the user wants to discard, but must be kept
-	char **relevant_paths = NULL;
-	char **no_longer_relevant = NULL;
+	char **exc_slash = NULL;
+	char **inc_slash = NULL;
 	char *redefined_root = NULL;
 
 	// Variables to hold the size of 2D pseudoarrays
 	int inc_len = 0;
 	int exc_len = 0;
-	int must_len = 0;
-	int rel_len = 0;
 	int no_len = 0;
 	int cur_len = 0;
 	int cur_max = 80;
@@ -218,6 +748,7 @@ int main(int argc, char **argv) {
 	int reading_node = 0;
 	int writing = 1;
 	int toggle = 0;
+	int merge = 0;
 
 	// Variables related to revisions and nodes
 	int drop_empty = 0;
@@ -231,8 +762,26 @@ int main(int argc, char **argv) {
 	int nod_len = -1;
 	int nod = -1;
 	node *current_node = NULL;
+	node **node_ptr = NULL;
 
-	// Analyze the given parameters
+	repotree rt;
+	rt.children = NULL;
+	rt.path = NULL;
+	rt.map = NULL;
+	rt.chi_len = 0;
+	repotree *subtree;
+
+	mergeinfo *mi = NULL;
+	int mi_max = 0;
+	int mi_len = 0;
+	int act_mi = -1;
+	
+	/*******************************************************************************
+	 *
+	 * Parameter analysis
+	 *
+	 *******************************************************************************/
+
 	for (i = 1 ; i < argc ; ++i) {
 		if (starts_with(argv[i], "-")) {
 			if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -260,7 +809,6 @@ int main(int argc, char **argv) {
 			}
 			else if (drop) {
 				drop_empty = 1;
-				steps = 7;
 			}
 		}
 		else if (in && infile == NULL) {
@@ -302,7 +850,8 @@ int main(int argc, char **argv) {
 			++exc_len;
 		}
 		else if (redef && redefined_root == NULL) {
-			redefined_root = argv[i];
+			fprintf(stderr, "WARNING: Redefined root does not work in this version, and will be ignored.\n");
+			//redefined_root = argv[i];
 		}
 		else {
 			exit_with_error(strcat(argv[i], " is not a valid parameter. Use -h for help."), 1);
@@ -358,12 +907,16 @@ int main(int argc, char **argv) {
 		}
 		free(temp_str);
 	}
-	want_by_default = (include == NULL);
-	fprintf(messages, "Step %d/%d: Reading the infile... ", cur_step, steps);
-	fflush(messages);
-	++cur_step;
+	want_by_default = 10;
+	if (include) {
+		want_by_default = 0;
+	}
 
-	// Read the metadata from all nodes.
+	/*******************************************************************************
+	 *
+	 * Reading the metadata
+	 *
+	 *******************************************************************************/
 	while ((ch = fgetc(infile)) != EOF) {
 		// Once we reach a newline character we need to analyze the data.
 		if (ch == NEWLINE) {
@@ -375,31 +928,56 @@ int main(int argc, char **argv) {
 				}
 				// A line starting with "Content-lenth: " means that the content
 				// of the node is the only thing left of it.
-				else if (starts_with(current_line,"Content-length: ")) {
-					// The content is irrelevant (and might mess things up). Skip it.
-					fseeko(infile, (off_t)atol(&current_line[16]) + CONTENT_PADDING, SEEK_CUR);
+				else if (starts_with(current_line, "Content-length: ")) {
+					offset = (off_t)atol(&current_line[16]) + CONTENT_PADDING;
+					if (is_dir && offset > 10 + CONTENT_PADDING) {
+						minfo = str_malloc(offset + 1);
+						i = 0;
+						while ((ch = fgetc(infile)) != EOF && i < offset) {
+							// NULL instead of newline means needed string operations are easier later.
+							if (ch == NEWLINE) {
+								minfo[i] = '\0';
+							}
+							else {
+								minfo[i] = ch;
+							}
+							++i;
+						}
+						minfo[i] = '\0';
+						mi = create_mergeinfo(mi, minfo, rev_len, nod_len, &mi_len);
+						free(minfo);
+					}
+					else {
+						fseeko(infile, offset, SEEK_CUR);
+					}
 					reading_node = 0;
 				}
-				else if (starts_with(current_line,"Node-action: ")) {
-					if (strcmp(&current_line[13],"add") == 0) {
+				else if (starts_with(current_line, "Node-action: ")) {
+					if (strcmp(&current_line[13], "add") == 0) {
 						current_node[nod_len].action = ADD;
 					}
-					else if (strcmp(&current_line[13],"delete") == 0) {
+					else if (strcmp(&current_line[13], "delete") == 0) {
 						current_node[nod_len].action = DELETE;
 					}
-					else if (strcmp(&current_line[13],"change") == 0) {
+					else if (strcmp(&current_line[13], "change") == 0) {
 						current_node[nod_len].action = CHANGE;
 					}
 					else {
 						current_node[nod_len].action = REPLACE;
 					}
 				}
-				else if (starts_with(current_line,"Node-copyfrom-path: ")) {
+				else if (starts_with(current_line, "Node-kind: ")) {
+					is_dir = !strcmp(&current_line[11], "dir"); // Keep this info for now in case we need to analyze mergeinfo
+				}
+				else if (starts_with(current_line, "Node-copyfrom-path: ")) {
 					current_node[nod_len].copyfrom = str_malloc(strlen(&current_line[19]));
 					strcpy(current_node[nod_len].copyfrom, &current_line[20]);
 				}
+				else if (starts_with(current_line, "Node-copyfrom-rev: ")) {
+					current_node[nod_len].copyfrom_rev = atoi(&current_line[19]);
+				}
 			} // End of "if (reading_node)"
-			else if (starts_with(current_line,"Node-path: ")) {
+			else if (starts_with(current_line, "Node-path: ")) {
 				++nod_len;
 				++revisions[rev_len].size;
 				if (nod_len == 0) {
@@ -410,10 +988,11 @@ int main(int argc, char **argv) {
 				else if ((current_node = (node*)realloc(current_node, (nod_len + 1) * sizeof(node))) == NULL) {
 					exit_with_error("realloc failed", 2);
 				}
+				init_new_node(&current_node[nod_len]);
 				current_node[nod_len].path = str_malloc(strlen(&current_line[10]));
 				strcpy(current_node[nod_len].path, &current_line[11]);
-				current_node[nod_len].copyfrom = NULL;
 				current_node[nod_len].wanted = want_by_default;
+				current_node[nod_len].revision = rev_len;
 				reading_node = 1;
 			}
 			else if (starts_with(current_line,"Revision-number: ")) {
@@ -421,6 +1000,7 @@ int main(int argc, char **argv) {
 					revisions[rev_len].nodes = current_node;
 				}
 				++rev_len;
+				print_progress(messages, "Reading revision", rev_len);
 				if (rev_len == rev_max) {
 					rev_max += INCREMENT;
 					if ((revisions = (revision*)realloc(revisions, (rev_max * sizeof(revision)))) == NULL) {
@@ -429,8 +1009,10 @@ int main(int argc, char **argv) {
 				}
 				current_node = NULL;
 				revisions[rev_len].nodes = NULL;
+				revisions[rev_len].fakes = NULL;
 				revisions[rev_len].size = 0;
-				revisions[rev_len].number = -1;
+				revisions[rev_len].fake_size = 0;
+				revisions[rev_len].number = rev_len;
 				nod_len = -1;
 			}
 			current_line[0] = '\0';
@@ -454,364 +1036,161 @@ int main(int argc, char **argv) {
 	++rev_len;
 	current_line[0] = '\0';
 	cur_len = 0;
-	fprintf(messages, "OK\nStep %d/%d: Removing unwanted nodes... ", cur_step, steps);
-	fflush(messages);
-	++cur_step;
+	fprintf(messages, "\n");
 
-	// Analyze the metadata in order to decide which nodes to keep.
-	// If the user specified excludes, mark nodes in the exclude paths as unwanted.
-	// (By default all nodes are wanted when using excludes.)
-	if (exclude != NULL) {
-		for (i = rev_len - 1; i >= 0; --i) {
+	/***********************************************************************************
+	 *
+	 * Create dependencies
+	 *
+	 ***********************************************************************************/
+
+	if (mi_len > 0) {
+		act_mi = 0;
+	}
+	
+	for (i = 0; i < rev_len; ++i) {
+		print_progress(messages, "Analyzing revision", i);
+		merge = -1;
+		for (j = 0; j < revisions[i].size; ++j) {
+			add_event(&rt, &revisions[i].nodes[j]);
+			// Some add nodes need this...
+			if (revisions[i].nodes[j].action == ADD) {
+				add_dir_dep_to_node(&rt, &revisions[i].nodes[j], i);
+				add_file_dep_to_node(&rt, &revisions[i].nodes[j]);
+			}
+			if (act_mi >= 0 && mi[act_mi].revision == i && mi[act_mi].node == j) {
+				merge = act_mi;
+				++act_mi;
+				if (act_mi == mi_len) {
+					act_mi = -1;
+				}
+			}
+			if (merge >= 0) {
+				for (k = 0; k < mi[merge].data->size; ++k) {
+					add_merge_dep_to_node(&rt, &revisions[i].nodes[j], mi[merge].data->path[k], revisions[i].nodes[mi[merge].node].path, mi[merge].data->to[k]);
+				}
+			}
+			// Copyfrom and delete events can affect entire subtrees. This is dealt with here.
+			if (revisions[i].nodes[j].copyfrom || revisions[i].nodes[j].action == DELETE) {
+				if (revisions[i].nodes[j].copyfrom) {
+					subtree = get_subtree(&rt, revisions[i].nodes[j].copyfrom, 1);
+					node_ptr = get_relevant_nodes_at_revision(subtree, revisions[i].nodes[j].copyfrom_rev, &temp_int);
+				}
+				else {
+					subtree = get_subtree(&rt, revisions[i].nodes[j].path, 1);
+					node_ptr = get_relevant_nodes_at_revision(subtree, i, &temp_int);
+				}
+				if (temp_int == 0) {
+					continue;
+				}
+				if ((revisions[i].fakes = (node**)realloc(revisions[i].fakes, (revisions[i].fake_size + temp_int) * sizeof(node*))) == NULL) {
+					exit_with_error("realloc failed", 2);
+				}
+				for (k = 0; k < temp_int; ++k) {
+					if ((current_node = (node*)malloc(sizeof(node))) == NULL) {
+						exit_with_error("malloc failed", 2);
+					}
+					init_new_node(current_node);
+					current_node->revision = i;
+					current_node->action = revisions[i].nodes[j].action;
+					current_node->wanted = want_by_default;
+					if (revisions[i].nodes[j].copyfrom) {
+						current_node->copyfrom = node_ptr[k]->path;
+						current_node->copyfrom_rev = node_ptr[k]->revision;
+						current_node->path = get_dir_after_copyfrom(revisions[i].nodes[j].path, node_ptr[k]->path, revisions[i].nodes[j].copyfrom);
+					}
+					else {
+						current_node->path = node_ptr[k]->path;
+					}
+					add_event(&rt, current_node);
+					add_dependency(&revisions[i].nodes[j], current_node); // Dependency on the node that affects the subtree
+					if (revisions[i].nodes[j].copyfrom) {
+						add_dependency(node_ptr[k], current_node); // File dependency
+						add_dir_dep_to_node(&rt, current_node, i); // Dir dependency
+					}
+					revisions[i].fakes[revisions[i].fake_size] = current_node;
+					++revisions[i].fake_size;
+				}
+				free(node_ptr);
+			}
+		}
+	}
+
+	/***********************************************************************************
+	 *
+	 * Analyze what to keep
+	 *
+	 ***********************************************************************************/
+
+	// Include strategy
+	if (include) {
+		if ((inc_slash = (char**)malloc(inc_len * sizeof(char*))) == NULL) {
+			exit_with_error("malloc failed", 2);
+		}
+		for (i = 0; i < inc_len; ++i) {
+			inc_slash[i] = add_slash_to(include[i]);
+		}
+		for (i = rev_len - 1; i > 0; --i) {
 			for (j = 0; j < revisions[i].size; ++j) {
-				for (k = 0; k < exc_len; ++k) {
-					temp_str = add_slash_to(exclude[k]);
-					if (strcmp(revisions[i].nodes[j].path, exclude[k]) == 0 || starts_with(revisions[i].nodes[j].path, temp_str)) {
-						revisions[i].nodes[j].wanted = 0;
-					}
-					free(temp_str);
-				}
-				// Check whether the node has been marked as a "must keep". Keep it if it has.
-				for (k = 0; k < must_len; ++k) {
-					if ((temp_str = (char*)calloc(strlen(mustkeep[k]) + 2, 1)) == NULL) {
-						exit_with_error("calloc failed", 2);
-					}
-					temp_str2 = str_malloc(strlen(mustkeep[k]) + 1);
-					strcpy(temp_str2, mustkeep[k]);
-					tok_str = strtok(temp_str2, "/");
-					while (tok_str != NULL) {
-						strcat(temp_str,tok_str);
-						if (strcmp(revisions[i].nodes[j].path, temp_str) == 0) {
-							revisions[i].nodes[j].wanted = 1;
-						}
-						strcat(temp_str,"/");
-						tok_str = strtok(NULL, "/");
-					}
-					if (starts_with(revisions[i].nodes[j].path, temp_str)) {
-						revisions[i].nodes[j].wanted = 1;
-					}
-					free(temp_str);
-					free(temp_str2);
-				}
-				// Check whether the path should be added as a "must keep".
-				if (revisions[i].nodes[j].wanted && revisions[i].nodes[j].copyfrom != NULL) {
-					should_do = 0;
-					for (k = 0; k < exc_len; ++k) {
-						temp_str = add_slash_to(exclude[k]);
-						temp_str2 = add_slash_to(revisions[i].nodes[j].copyfrom);
-						if (strcmp(revisions[i].nodes[j].copyfrom, exclude[k]) == 0 || starts_with(revisions[i].nodes[j].copyfrom, temp_str) || starts_with(exclude[k], temp_str2)) {
-							should_do = 1;
-						}
-						free(temp_str);
-						free(temp_str2);
-					}
-					if (should_do) {
-						if ((mustkeep = (char**)realloc(mustkeep, (must_len + 1) * sizeof(char*))) == NULL) {
-							exit_with_error("realloc failed", 2);
-						}
-						mustkeep[must_len] = str_malloc(strlen(revisions[i].nodes[j].copyfrom) + 1);
-						strcpy(mustkeep[must_len], revisions[i].nodes[j].copyfrom);
-						++must_len;
-					}
-				}
-			}
-		}
-	}
-	// If the user specified includes, mark nodes in the include paths as wanted.
-	// (By default all nodes are unwanted when using includes.)
-	else {
-		for (i = rev_len - 1; i >= 0; --i) {
-			for (j = 0 ; j < revisions[i].size ; ++j) {
 				for (k = 0; k < inc_len; ++k) {
-					temp_str = add_slash_to(include[k]);
-					temp_str2 = add_slash_to(revisions[i].nodes[j].path);
-					if (strcmp(revisions[i].nodes[j].path, include[k]) == 0 || starts_with(revisions[i].nodes[j].path, temp_str) || starts_with(include[k], temp_str2)) {
-						revisions[i].nodes[j].wanted = 1;
+					if (starts_with(revisions[i].nodes[j].path, inc_slash[k]) || strcmp(revisions[i].nodes[j].path, include[k]) == 0) {
+						set_wanted(&revisions[i].nodes[j]);
 					}
-					free(temp_str);
-					free(temp_str2);
 				}
-				// Check whether the node has been marked as a "must keep".
-				for (k = 0; k < must_len; ++k) {
-					if ((temp_str = (char*)calloc(strlen(mustkeep[k]) + 2, 1)) == NULL) {
-						exit_with_error("calloc failed", 2);
-					}
-					temp_str2 = str_malloc(strlen(mustkeep[k]) + 1);
-					strcpy(temp_str2, mustkeep[k]);
-					tok_str = strtok(temp_str2, "/");
-					while (tok_str != NULL) {
-						strcat(temp_str,tok_str);
-						if (strcmp(revisions[i].nodes[j].path, temp_str) == 0) {
-							revisions[i].nodes[j].wanted = 1;
-						}
-						strcat(temp_str, "/");
-						tok_str = strtok(NULL, "/");
-					}
-					if (starts_with(revisions[i].nodes[j].path, temp_str)) {
-						revisions[i].nodes[j].wanted = 1;
-					}
-					free(temp_str);
-					free(temp_str2);
-				}
-				// Check whether the path should be added as a "must keep".
-				if (revisions[i].nodes[j].wanted && revisions[i].nodes[j].copyfrom != NULL) {
-					should_do = 1;
-					for (k = 0; k < inc_len; ++k) {
-						temp_str = add_slash_to(include[k]);
-						if (strcmp(revisions[i].nodes[j].copyfrom, include[k]) == 0 || starts_with(revisions[i].nodes[j].copyfrom, temp_str)) {
-							should_do = 0;
-							free(temp_str);
-							break;
-						}
-						free(temp_str);
-						temp_str = add_slash_to(revisions[i].nodes[j].path);
-						if (starts_with(include[k], temp_str)) {
-							temp_str2 = str_malloc(strlen(revisions[i].nodes[j].copyfrom) + strlen(include[k]) + 2);
-							strcpy(temp_str2, revisions[i].nodes[j].copyfrom);
-							strcat(temp_str2, "/");
-							strcat(temp_str2, reduce_path(revisions[i].nodes[j].path, include[k]));
-							if ((mustkeep = (char**)realloc(mustkeep, (must_len + 1) * sizeof(char*))) == NULL) {
-								exit_with_error("realloc failed", 2);
-							}
-							mustkeep[must_len] = str_malloc(strlen(temp_str2) + 1);
-							strcpy(mustkeep[must_len], temp_str2);
-							++must_len;
-							should_do = 0;
-							free(temp_str);
-							free(temp_str2);
-							break;
-						}
-						free(temp_str);
-					}
-					if (should_do) {
-						if ((mustkeep = (char**)realloc(mustkeep, (must_len + 1) * sizeof(char*))) == NULL) {
-							exit_with_error("realloc failed", 2);
-						}
-						mustkeep[must_len] = str_malloc(strlen(revisions[i].nodes[j].copyfrom) + 1);
-						strcpy(mustkeep[must_len], revisions[i].nodes[j].copyfrom);
-						++must_len;
+			}
+			for (j = 0; j < revisions[i].fake_size; ++j) {
+				for (k = 0; k < inc_len; ++k) {
+					if (starts_with(revisions[i].fakes[j]->path, inc_slash[k]) || strcmp(revisions[i].fakes[j]->path, include[k]) == 0) {
+						set_wanted(revisions[i].fakes[j]);
 					}
 				}
 			}
 		}
+		for (i = 0; i < inc_len; ++i) {
+			free(inc_slash[i]);
+		}
+		free(inc_slash);
 	}
-	fprintf(messages, "OK\nStep %d/%d: Bringing back necessary delete operations... ", cur_step, steps);
-	fflush(messages);
-	++cur_step;
+	// Exclude strategy
+	else {
+		if ((exc_slash = (char**)malloc(exc_len * sizeof(char*))) == NULL) {
+			exit_with_error("malloc failed", 2);
+		}
+		for (i = 0; i < exc_len; ++i) {
+			exc_slash[i] = add_slash_to(exclude[i]);
+		}
+		parse_exclude_preparation(revisions, exclude, exc_slash, rev_len, exc_len);
+		for (i = rev_len - 1; i > 0; --i) {
+			for (j = 0; j < revisions[i].size; ++j) {
+				if (!is_excluded(revisions[i].nodes[j].path, exclude, exc_slash, exc_len)) {
+					set_wanted(&revisions[i].nodes[j]);
+				}
+			}
+		}
+		for (i = rev_len - 1; i > 0; --i) {
+			for (j = 0; j < revisions[i].fake_size; ++j) {
+				if (!is_excluded(revisions[i].fakes[j]->path, exclude, exc_slash, exc_len)) {
+					set_wanted(revisions[i].fakes[j]);
+				}
+			}
+		}
+		for (i = 0; i < exc_len; ++i) {
+			free(exc_slash[i]);
+		}
+		free(exc_slash);
+	}
 
-	// Parse through the metadata again - this time bringing back any
-	// possible delete instructions for the nodes we were forced to keep
-	// but actually don't want any more.
+	// Restore wanted delete nodes
 	for (i = 0; i < rev_len; ++i) {
 		for (j = 0; j < revisions[i].size; ++j) {
-			if (revisions[i].nodes[j].wanted && revisions[i].nodes[j].action != DELETE) {
-				should_do = 1;
-				for (k = 0; k < rel_len; ++k) {
-					if (relevant_paths[k] != NULL && strcmp(revisions[i].nodes[j].path, relevant_paths[k]) == 0) {
-						should_do = 0;
-						break;
-					}
-				}
-				if (should_do) {
-					if ((relevant_paths = (char**)realloc(relevant_paths, (rel_len + 1) * sizeof(char*))) == NULL) {
-						exit_with_error("realloc failed", 2);
-					}
-					relevant_paths[rel_len] = str_malloc(strlen(revisions[i].nodes[j].path) + 1);
-					strcpy(relevant_paths[rel_len], revisions[i].nodes[j].path);
-					++rel_len;					
-				}
+			if (revisions[i].nodes[j].action == DELETE && !revisions[i].nodes[j].wanted) {
+				restore_delete_node_if_needed(&rt, &revisions[i].nodes[j]);
 			}
-			if (revisions[i].nodes[j].action == DELETE) {
-				for (k = 0; k < rel_len; ++k) {
-					if (relevant_paths[k] != NULL && strcmp(revisions[i].nodes[j].path, relevant_paths[k]) == 0) {
-						revisions[i].nodes[j].wanted = 1;
-						for (l = 0; l < rel_len; ++l) {
-							temp_str = add_slash_to(revisions[i].nodes[j].path);
-							if (relevant_paths[l] != NULL && (strcmp(relevant_paths[l], revisions[i].nodes[j].path) == 0 || starts_with(relevant_paths[l], temp_str))) {
-								free(relevant_paths[l]);
-								relevant_paths[l] = NULL;
-							}
-							free(temp_str);
-						}
-					}
-				}
-			}
-		}
-	}
-	fprintf(messages, "OK\nStep %d/%d: Identifying lingering unwanted nodes... ", cur_step, steps);
-	fflush(messages);
-	++cur_step;
-
-	// Find paths which are not relevant as specified by the user, but still lingers
-	// due to dependency includes. (So that we can deal with them later.)
-	for (i = 0; i < rel_len; ++i) {
-		if (include == NULL && relevant_paths[i] != NULL) {
-			for (j = 0; j < exc_len; ++j) {
-				temp_str = add_slash_to(exclude[j]);
-				if (strcmp(relevant_paths[i], exclude[j]) == 0 || starts_with(relevant_paths[i], temp_str)) {
-					if ((no_longer_relevant = (char**)realloc(no_longer_relevant, (no_len + 1) * sizeof(char*))) == NULL) {
-						exit_with_error("realloc failed", 2);
-					}
-					no_longer_relevant[no_len] = str_malloc(strlen(relevant_paths[i]) + 1);
-					strcpy(no_longer_relevant[no_len], relevant_paths[i]);
-					++no_len;
-				}
-				free(temp_str);
-			}
-		}
-		else if (exclude == NULL && relevant_paths[i] != NULL) {
-			temp_str = str_malloc(strlen(relevant_paths[i]) + 2);
-			strcpy(temp_str, relevant_paths[i]);
-			strcat(temp_str, "/");
-			for (j = 0; j < inc_len; ++j) {
-				temp_str2 = add_slash_to(include[j]);
-				if (!(strcmp(relevant_paths[i], include[j]) == 0 || starts_with(relevant_paths[i], temp_str2) || starts_with(include[j], temp_str))) {
-					if ((no_longer_relevant = (char**)realloc(no_longer_relevant, (no_len + 1) * sizeof(char*))) == NULL) {
-						exit_with_error("realloc failed", 2);
-					}
-					no_longer_relevant[no_len] = str_malloc(strlen(relevant_paths[i]) + 1);
-					strcpy(no_longer_relevant[no_len], relevant_paths[i]);
-					++no_len;
-				}
-				free(temp_str2);
-			}
-			free(temp_str);
-		}
-	}
-	// Check that we don't have anything specifically included in our "no_longer_relevant"-section.
-	for (i = 0; i < no_len; ++i) {
-		if (no_longer_relevant[i] != NULL) {
-			for (j = 0; j < inc_len ; ++j) {
-				temp_str = add_slash_to(include[j]);
-				temp_str2 = add_slash_to(no_longer_relevant[i]);
-				if (strcmp(no_longer_relevant[i], include[j]) == 0 || starts_with(no_longer_relevant[i], temp_str) || starts_with(include[j], temp_str2)) {
-					free(no_longer_relevant[i]);
-					no_longer_relevant[i] = NULL;
-					free(temp_str);
-					free(temp_str2);
-					break;
-				}
-				free(temp_str);
-				free(temp_str2);
-			}
-		}
-	}
-
-	// Remove any directory entries that should no longer exist with the redefined root
-	if (redefined_root != NULL) {
-		for (i = 0; i < rev_len; ++i) {
-			for (j = 0; j < revisions[i].size; ++j) {
-				if (revisions[i].nodes[j].wanted) {
-					temp_str = add_slash_to(redefined_root);
-					for (k = strlen(temp_str) - 1; k > 0; --k) {
-						if (temp_str[k] == '/') {
-							temp_str[k] = '\0';
-							if (strcmp(temp_str, revisions[i].nodes[j].path) == 0) {
-								revisions[i].nodes[j].wanted = 0;
-								for (l = 0; l < no_len; ++l) {
-									if (no_longer_relevant[l] != NULL && strcmp(revisions[i].nodes[j].path, no_longer_relevant[l]) == 0) {
-										free(no_longer_relevant[l]);
-										no_longer_relevant[l] = NULL;
-									}
-								}
-							}
-						}
-					}
-					free(temp_str);
-				}
-			}
-		}
-		// Check whether add or delete actions should be omitted due to overlapping paths when redefining root
-		for (i = rev_len - 1; i >= 0; --i) {
-			for (j = revisions[i].size - 1; j >= 0; --j) {
-				if (revisions[i].nodes[j].wanted && revisions[i].nodes[j].action == ADD && revisions[i].nodes[j].copyfrom == NULL) {
-					temp_str = reduce_path(redefined_root, revisions[i].nodes[j].path);
-					// Check backwards for overlapping adds
-					for (k = i; k >= 0; --k) {
-						for (l = 0; l < revisions[k].size; ++l) {
-							if (revisions[k].nodes[l].wanted && (revisions[k].nodes[l].action == DELETE || revisions[k].nodes[l].action == ADD)) {
-								temp_str2 = reduce_path(redefined_root, revisions[k].nodes[l].path);
-								if (strcmp(temp_str, temp_str2) == 0 && !(k == i && l >= j)) {
-									if (revisions[k].nodes[l].action == ADD) {
-										revisions[i].nodes[j].wanted = 0;
-									}
-									free(temp_str2);
-									goto next_add;
-								}
-								free(temp_str2);								
-							}
-						}
-					}
-				next_add:
-					free(temp_str);
-				}
-				// Check for overlapping deletes
-				else if (revisions[i].nodes[j].wanted && revisions[i].nodes[j].action == ADD && revisions[i].nodes[j].copyfrom != NULL) {
-					temp_str = reduce_path(redefined_root, revisions[i].nodes[j].path);
-					if (strcmp(temp_str, revisions[i].nodes[j].copyfrom) == 0) {
-						for (k = i; k < rev_len; ++k) {
-							for (l = 0; l < revisions[k].size; ++l) {
-								if (revisions[k].nodes[l].wanted && revisions[k].nodes[l].action == DELETE) {
-									temp_str2 = str_malloc(strlen(revisions[i].nodes[j].copyfrom) + 2);
-									temp_str2[0] = '\0';
-									tok_str = strtok(revisions[i].nodes[j].copyfrom, "/");
-									while (tok_str != NULL) {
-										strcat(temp_str2, tok_str);
-										if (strcmp(revisions[k].nodes[l].path, temp_str2) == 0) {
-											revisions[k].nodes[l].wanted = 0;
-											free(temp_str2);
-											goto next_del;
-										}
-										strcat(temp_str2,"/");
-										tok_str = strtok(NULL, "/");
-									}
-									free(temp_str2);
-								}
-							}
-						}
-					}
-				next_del:
-					free(temp_str);
-				}
-			}
-		}
-		// Reduce the paths of deletion candidates, so that we delete the correct paths
-		for (i = 0; i < no_len; ++i) {
-			if (no_longer_relevant[i] != NULL) {
-				temp_str = reduce_path(redefined_root, no_longer_relevant[i]);
-				strcpy(no_longer_relevant[i], temp_str);
-				free(temp_str);
-			}
-		}
-	}
-
-	// Remove redundant entries (i.e. delete only "trunk" instead of "trunk", "trunk/foo", "trunk/bar", et.c.)
-	for (i = 0; i < no_len; ++i) {
-		if (no_longer_relevant[i] != NULL) {
-			delete_needed = 1;
-			temp_str = add_slash_to(no_longer_relevant[i]);
-			for (j = 0; j < no_len; ++j) {
-				if (i != j && no_longer_relevant[j] != NULL && (starts_with(no_longer_relevant[j], temp_str) || strcmp(no_longer_relevant[i], no_longer_relevant[j]) == 0)) {
-					free(no_longer_relevant[j]);
-					no_longer_relevant[j] = NULL;
-				}
-			}			
-			for (j = 0; j < inc_len ; ++j) {
-				if (strcmp(no_longer_relevant[i], include[j]) == 0 || starts_with(include[j], temp_str)) {
-					free(no_longer_relevant[i]);
-					no_longer_relevant[i] = NULL;
-					break;
-				}
-			}
-			free(temp_str);
 		}
 	}
 
 	// Renumber the revisions if the empty ones are to be dropped
 	if (drop_empty) {
-		fprintf(messages, "OK\nStep %d/%d: Renumbering revisions... ", cur_step, steps);
-		fflush(messages);
-		++cur_step;
 		revisions[0].number = 0; // Revision 0 is special, and should never be dropped.
 		new_number = 1;
 		for (i = 1; i < rev_len; ++i) {
@@ -822,19 +1201,27 @@ int main(int argc, char **argv) {
 					break;
 				}
 			}
-			if (!empty) {
+			if (empty) {
+				revisions[i].number = -1;
+			}
+			else {
 				revisions[i].number = new_number;
 				++new_number;
 			}
 		}
 	}
-	fprintf(messages, "OK\nStep %d/%d: Writing the outfile... ", cur_step, steps);
-	fflush(messages);
-	++cur_step;
+	fprintf(messages, "\n");
 
-	// Copy the infile to the outfile skipping the undesireable parts.
+	/***********************************************************************************
+	 *
+	 * Write the outfile
+	 *
+	 ***********************************************************************************/
+	if (mi_len > 0) {
+		act_mi = 0;
+	}
 	reading_node = 0;
-	fseeko(infile, 0 , SEEK_SET); // Replaced "rewind(infile);" with this because (windows + huge files + rewind) == fail.
+	fseeko(infile, 0, SEEK_SET); // Replaced "rewind(infile);" with this because (windows + huge files + rewind) == fail.
 	while ((ch = fgetc(infile)) != EOF) {
 		if (ch == NEWLINE) {
 			if (reading_node) {
@@ -852,17 +1239,33 @@ int main(int argc, char **argv) {
 					fprintf(outfile, "Node-copyfrom-rev: %d\n", revisions[temp_int].number);
 					toggle = 1;
 				}
-				else if(writing && redefined_root != NULL && starts_with(current_line, "Node-copyfrom-path: ")) {
+				else if(writing && redefined_root && starts_with(current_line, "Node-copyfrom-path: ")) {
 					temp_str = reduce_path(redefined_root, &current_line[20]);
 					fprintf(outfile, "Node-copyfrom-path: %s\n", temp_str);
 					toggle = 1;
 					free(temp_str);	
 				}
+				else if (act_mi >= 0 && mi[act_mi].revision == rev && mi[act_mi].node == nod && starts_with(current_line, "Prop-content-length: ")) {
+					pcon_len = (off_t)atol(&current_line[21]);
+					toggle = 1;
+				}
 				else if (starts_with(current_line, "Content-length: ")) {
 					con_len = (off_t)atol(&current_line[16]);
 					if (writing) {
-						fprintf(outfile, "%s\n", current_line);
-						for (offset = 0; offset < con_len + CONTENT_PADDING; ++offset) {
+						if (pcon_len) {
+							write_mergeinfo(outfile, mi[act_mi].data, revisions, mi[act_mi].orig_size, con_len, pcon_len);
+							// -10 is because of the "PROPS-END\n" that is included in orig_size.
+							fseeko(infile, mi[act_mi].orig_size - 10, SEEK_CUR);
+							while (fgetc(infile) != NEWLINE) {}
+							++act_mi;
+							if (act_mi == mi_len) {
+								act_mi = -1;
+							}
+						}
+						else {
+							fprintf(outfile, "%s\n", current_line);
+						}
+						for (offset = pcon_len; offset < con_len + CONTENT_PADDING; ++offset) {
 							fputc(fgetc(infile), outfile);
 						}
 					}
@@ -877,6 +1280,13 @@ int main(int argc, char **argv) {
 			else if (starts_with(current_line, "Node-path: ")) {
 				reading_node = 1;
 				++nod;
+				while (act_mi >= 0 && rev == mi[act_mi].revision && nod > mi[act_mi].node) {
+					++act_mi;
+					if (act_mi == mi_len) {
+						act_mi = -1;
+					}
+				}
+				pcon_len = 0;
 				writing = revisions[rev].nodes[nod].wanted;
 				if (writing && redefined_root != NULL) {
 					temp_str = reduce_path(redefined_root, &current_line[11]);
@@ -887,6 +1297,13 @@ int main(int argc, char **argv) {
 			}
 			else if (starts_with(current_line, "Revision-number: ")) {
 				++rev;
+				print_progress(messages, "Writing revision", rev);
+				while (act_mi >= 0 && rev > mi[act_mi].revision) {
+					++act_mi;
+					if (act_mi == mi_len) {
+						act_mi = -1;
+					}
+				}
 				nod = -1;
 				writing = (!drop_empty || revisions[rev].number >= 0);
 				if (drop_empty && writing) {
@@ -914,43 +1331,7 @@ int main(int argc, char **argv) {
 			current_line[cur_len] = '\0';
 		}
 	}
-	fprintf(messages, "OK\nStep %d/%d: Adding revision deleting surplus nodes... ", cur_step, steps);
-	fflush(messages);
-	++cur_step;
-
-	// Now we deal with any surplus nodes by adding a revision that deletes them.
-	if (delete_needed) {
-		time(&rawtime);
-		ptm = gmtime(&rawtime);
-		if (drop_empty) {
-			i = 1;
-			do {
-				temp_int = revisions[rev_len - i].number + 1;
-				++i;
-			} while (temp_int == 0);
-		}
-		else {
-			temp_int = rev_len;
-		}
-		fprintf(outfile, "Revision-number: %d\n", temp_int);
-		fprintf(outfile, "Prop-content-length: 133\n");
-		fprintf(outfile, "Content-length: 133\n\n");
-		fprintf(outfile, "K 7\nsvn:log\nV 22\n");
-		fprintf(outfile, "Deleted unwanted nodes\n");
-		fprintf(outfile, "K 10\nsvn:author\nV 16\nsvndumpsanitizer\nK 8\nsvn:date\nV 27\n");
-		fprintf(outfile, "%d-%.2d-%.2dT%.2d:%.2d:%.2d.000000Z\n", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec);
-		fprintf(outfile, "PROPS-END\n\n");
-		for (i = 0; i < no_len; ++i) {
-			if (no_longer_relevant[i] != NULL) {
-				fprintf(outfile, "Node-path: %s\n", no_longer_relevant[i]);
-				fprintf(outfile, "Node-action: delete\n\n\n");
-			}
-		}
-		fprintf(messages, "OK\n");
-	}
-	else {
-		fprintf(messages, "NOT NEEDED\n");
-	}
+	fprintf(messages, "\nAll done.\n");
 
 	// Clean everything up
 	fclose(infile);
@@ -959,27 +1340,31 @@ int main(int argc, char **argv) {
 	}
 	for (i = 0; i < rev_len; ++i) {
 		for (j = 0; j < revisions[i].size; ++j) {
-			free(revisions[i].nodes[j].path);
 			free(revisions[i].nodes[j].copyfrom);
+			free(revisions[i].nodes[j].deps);
+		}
+		for (j = 0; j < revisions[i].fake_size; ++j) {
+			free(revisions[i].fakes[j]->deps);
+			free(revisions[i].fakes[j]);
 		}
 		free(revisions[i].nodes);
+		free(revisions[i].fakes);
 	}
-	for (i = 0; i < rel_len; ++i) {
-		free(relevant_paths[i]);
+	for (i = 0; i < mi_len; ++i) {
+		for (j = 0; j < mi[i].data->size; ++j) {
+			free(mi[i].data->path[j]);
+		}
+		free(mi[i].data->path);
+		free(mi[i].data->from);
+		free(mi[i].data->to);
+		free(mi[i].data);
 	}
-	for (i = 0; i < no_len; ++i) {
-		free(no_longer_relevant[i]);
-	}
-	for (i = 0; i < must_len; ++i) {
-		free(mustkeep[i]);
-	}
+	free(mi);
+	free_tree(&rt);
+	free(rt.children);
 	free(revisions);
-	free(relevant_paths);
-	free(no_longer_relevant);
 	free(include);
 	free(exclude);
-	free(mustkeep);
-	free(current_line);
-
+	free(current_line);	
 	return 0;
 }
