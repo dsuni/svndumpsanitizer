@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 2.0.0 Beta 1, released 15 Nov 2015
+	svndumpsanitizer version 2.0.0 Beta 2, released 22 Nov 2015
 
 	Copyright 2011,2012,2013,2014,2015 Daniel Suni
 
@@ -31,8 +31,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
-#define SDS_VERSION "2.0.0 Beta 1"
+#define SDS_VERSION "2.0.0 Beta 2"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -115,8 +116,22 @@ void show_help_and_exit() {
 	printf("\t\tAny revision that after sanitizing, contains no actions will be dropped altogether.\n");
 	printf("\t\tThe remaining revisions will be renumbered. You will lose the commit messages for\n");
 	printf("\t\tthe dropped revisions.\n\n");
+	printf("\t-a, --add-delete\n");
+	printf("\t\tAutomatically add a deleting revision to the end of the file that removes stuff that\n");
+	printf("\t\tsvndumpsanitizer has been forced to keep due to dependencies, but actually resides in\n");
+	printf("\t\tdirectories the user has specified he doesn't want. If no such files exist, no revision\n");
+	printf("\t\twill be added. This was the default behavior prior to version 2.\n\n");
 	printf("\t-r, --redefine-root [PATH]\n");
-	printf("\t\tDOES NOT WORK WITH THIS VERSION. Will display a warning and do nothing if used.\n\n");
+	printf("\t\tRedefines the repository root. This option can only be used with the include option.\n");
+	printf("\t\tThe path provided to this option must be the beginning of (or the whole) path\n");
+	printf("\t\tprovided to the include option. If more than one path is provided you can provide\n");
+	printf("\t\ta path only up to the point where the paths diverge. The operation is not guaranteed\n");
+	printf("\t\tto succeed on every repository. If the repository layout prevents redefining, a warning\n");
+	printf("\t\twill be displayed, and the sanitizing will be performed without changing any paths.\n\n");
+	printf("\t\tE.g.\n\t\t\"-n foo/bar/trunk -r foo/bar\" - OK. (This is probably the typical case.)\n");
+	printf("\t\t\"-n foo/bar/trunk -r foo/bar/trunk\" - OK.\n");
+	printf("\t\t\"-n foo/bar/trunk foo/baz/trunk -r foo\" - OK.\n");
+	printf("\t\t\"-n foo/bar/trunk foo/baz/trunk -r foo/bar\" - WRONG.\n\n");
 	printf("\t-v, --version\n");
 	printf("\t\tPrint version and exit.\n");
 	exit(0);
@@ -191,6 +206,10 @@ char* reduce_path(char* redefined_root, char* path) {
 	while (redefined_root[i] != '\0') {
 		if (path[i] != redefined_root[i]) {
 			strcpy(str, &path[mark + 1]);
+			// We've found a part of the redifined root, e.g. "trunk" when redefined_root is "trunk/foo"
+			if (matches_path_start(redefined_root, str)) {
+				str[0] = '\0';
+			}
 			return str;
 		}
 		if (path[i] == '/') {
@@ -279,10 +298,14 @@ int num_len(int num) {
  *
  ******************************************************************************/
 
-int is_excluded(char *path, char **excludes, char **ex_slash, int ex_len) {
+// Is path [in/ex]cluded? paths_slash contain a copy of the paths with slashes
+// appended to them. Yes, it could be done here, but this function is typically called
+// from within nested for loops, and not building the path + slash over and over again
+// will be much cheaper computationally.
+int is_cluded(char *path, char **paths, char **paths_slash, int len) {
 	int i;
-	for (i = 0; i < ex_len; ++i) {
-		if (strcmp(path, excludes[i]) == 0 || starts_with(path, ex_slash[i])) {
+	for (i = 0; i < len; ++i) {
+		if (strcmp(path, paths[i]) == 0 || starts_with(path, paths_slash[i])) {
 			return 1;
 		}
 	}
@@ -295,12 +318,12 @@ void parse_exclude_preparation(revision *r, char **excludes, char **ex_slash, in
 	int i, j;
 	for (i = 0; i < rev_len; ++i) {
 		for (j = 0; j < r[i].size; ++j) {
-			if (is_excluded(r[i].nodes[j].path, excludes, ex_slash, ex_len)) {
+			if (is_cluded(r[i].nodes[j].path, excludes, ex_slash, ex_len)) {
 				r[i].nodes[j].wanted = 0;
 			}
 		}
 		for (j = 0; j < r[i].fake_size; ++j) {
-			if (is_excluded(r[i].fakes[j]->path, excludes, ex_slash, ex_len)) {
+			if (is_cluded(r[i].fakes[j]->path, excludes, ex_slash, ex_len)) {
 				r[i].fakes[j]->wanted = 0;
 			}
 		}
@@ -347,6 +370,27 @@ node* get_add_node_at_revision(node **map, int rev, int map_len) {
 	return NULL;
 }
 
+// Returns the node that is actually present at a certain revision when wanted status is considered.
+node* get_wanted_node_at_revision(node **map, int rev, int map_len) {
+	int i;
+	for (i = map_len - 1; i >=0; --i) {
+		if (map[i]->revision <= rev && map[i]->wanted) {
+			if (map[i]->action == DELETE) {
+				return NULL;
+			}
+			return map[i];
+		}
+	}
+	return NULL;
+}
+
+node* get_node_at(node **map, int rev, int map_len, int wanted_only) {
+	if (wanted_only) {
+		return get_wanted_node_at_revision(map, rev, map_len);
+	}
+	return get_node_at_revision(map, rev, map_len);
+}
+
 /*******************************************************************************
  *
  * Repotree/dependency-related functions
@@ -371,6 +415,49 @@ repotree* get_subtree(repotree *rt, char *path, int fail_if_not_found) {
 		exit_with_error("Internal logic error.", 3);
 	}
 	return NULL;
+}
+
+// This function tries to detect any colliding add or delete nodes when using redefine root.
+// These situations can arise when something is copied from outside the included scope to a position
+// where the redefine root operation will cause it to fall back to the original position, e.g.
+// 1) Create foo/bar/baz.txt
+// 2) Create trunk/project/foo/quux.txt
+// 3) Copy bar (from foo/bar) to trunk/project/foo
+// svndumpsanitizer ... -n trunk/project -r trunk/project => won't import due to double add of dir "foo"
+int has_redefine_collisions(repotree *root, repotree *current, char *redefined_root) {
+	int i, wanted;
+	char *temp;
+	node *n;
+	repotree *subtree = NULL;
+	if (current->path) {
+		temp = reduce_path(redefined_root, current->path);
+		if (strcmp(current->path, temp) != 0) {
+			subtree = get_subtree(root, temp, 0);
+		}
+		free(temp);
+		if (subtree) {
+			wanted = 0; // We don't care about "collisions" that are unwanted, and won't be in the final repo.
+			for (i = subtree->map_len - 1; i >= 0; --i) {
+				if (subtree->map[i]->wanted) {
+					wanted = 1;
+				}
+				// If the potential collision was deleted prior to the existence of the redefined path, it's not really a collision.
+				if (subtree->map[i]->revision < current->map[0]->revision && subtree->map[i]->action == DELETE && subtree->map[i]->wanted) {
+					break;
+				}
+				// Houston, we have a problem...
+				if (wanted && (subtree->map[i]->action == DELETE || subtree->map[i]->action == ADD)) {
+					return 1;
+				}
+			}
+		}
+	}
+	for (i = 0; i < current->chi_len; ++i) {
+		if (has_redefine_collisions(root, &current->children[i], redefined_root)) {
+			return 1;
+		}
+	}
+	return 0;
 }
 
 void restore_delete_node_if_needed(repotree *rt, node *n) {
@@ -481,18 +568,15 @@ void add_merge_dep_to_node(repotree *rt, node *n, char *mergefrom, char *mergeto
 }
 
 // Add event to repo tree. If the path in question does not yet exist, we add it to the tree.
-// If it does exists we update all map nodes from the current revision forward to the current
-// node, or in case of DELETE node, set them to NULL. Dependencies are added for non-ADD-type
-// nodes in case another event affects the same path during the same revision. ADD-types are
-// either new files (=doesn't need this dependency) or copyfrom instances (=needs different
-// dependecy, handled elsewhere).
+// If it does exists we add it to the map. Dependencies are added for non-ADD-type nodes.
+// ADD-types are either new files (=doesn't need this dependency) or copyfrom instances
+// (=needs different dependecy, handled elsewhere).
 void add_event(repotree *rt, node *n) { //, char *str, int rev_len) {
 	int i;
 	for (i = 0; i < rt->chi_len; ++i) {
 		if (matches_path_start(n->path, rt->children[i].path)) {
 			if (strcmp(n->path, rt->children[i].path) != 0) {
-				//add_event(&rt->children[i], n, &str[j + 1], rev_len);
-				add_event(&rt->children[i], n); //, str, rev_len);
+				add_event(&rt->children[i], n);
 			}
 			else {
 				// Make everyone use the same pointer to save memory (important with huge 100GB+ repos)
@@ -529,13 +613,13 @@ void add_event(repotree *rt, node *n) { //, char *str, int rev_len) {
 
 // Returns a list of node pointers present in a specific part of the tree at a specific revision.
 // The number of nodes in the list will be "returned" through the "size" pointer.
-node** get_relevant_nodes_at_revision(repotree *rt, int rev, int *size) {
+node** get_relevant_nodes_at_revision(repotree *rt, int rev, int wanted_only, int *size) {
 	int i, j, ch_size;
 	int self_size = 0;
 	node **nptr, **nptr2;
 	node *n;
 	for (i = 0; i < rt->chi_len; ++i) {
-		n = get_node_at_revision(rt->children[i].map, rev, rt->children[i].map_len);
+		n = get_node_at(rt->children[i].map, rev, rt->children[i].map_len, wanted_only);
 		if (n && n->action != DELETE) {
 			++self_size;
 		}
@@ -549,16 +633,16 @@ node** get_relevant_nodes_at_revision(repotree *rt, int rev, int *size) {
 	}
 	self_size = 0;
 	for (i = 0; i < rt->chi_len; ++i) {
-		n = get_node_at_revision(rt->children[i].map, rev, rt->children[i].map_len);
+		n = get_node_at(rt->children[i].map, rev, rt->children[i].map_len, wanted_only);
 		if (n && n->action != DELETE) {
 			nptr[self_size] = n;
 			++self_size;
 		}
 	}
 	for (i = 0; i < rt->chi_len; ++i) {
-		n = get_node_at_revision(rt->children[i].map, rev, rt->children[i].map_len);
+		n = get_node_at(rt->children[i].map, rev, rt->children[i].map_len, wanted_only);
 		if (n && n->action != DELETE) {
-			nptr2 = get_relevant_nodes_at_revision(&rt->children[i], rev, &ch_size);
+			nptr2 = get_relevant_nodes_at_revision(&rt->children[i], rev, wanted_only, &ch_size);
 			if (nptr2) {
 				if ((nptr = (node**)realloc(nptr, (ch_size + self_size) * sizeof(node*))) == NULL) {
 					exit_with_error("realloc failed", 2);
@@ -661,9 +745,10 @@ mergeinfo* create_mergeinfo(mergeinfo *mi, char *minfo, int rev, int nod, int *m
 }
 
 // Returns the number of bytes the final row will have, including newline.
-int get_mergerow_size(mergedata *data, revision *revisions, int row) {
+int get_mergerow_size(mergedata *data, revision *revisions, char *redefined_root, int row) {
 	int to, from;
 	int size = 0;
+	char *temp;
 	to = revisions[data->to[row]].number;
 	from = revisions[data->from[row]].number;
 	if (to == from) {
@@ -672,15 +757,23 @@ int get_mergerow_size(mergedata *data, revision *revisions, int row) {
 	else {
 		size += num_len(to) + num_len(from) + 2; // ":XXX-YYY"
 	}
-	size += strlen(data->path[row]) + 2; // "/...\n"
+	if (redefined_root) {
+		temp = reduce_path(redefined_root, data->path[row]);
+		size += strlen(temp) + 2; // "/...\n"
+		free(temp);
+	}
+	else {
+		size += strlen(data->path[row]) + 2; // "/...\n"
+	}
 	return size;
 }
 
-void write_mergeinfo(FILE *outfile, mergedata *data, revision *revisions, int orig_size, off_t con_len, off_t pcon_len) {
+void write_mergeinfo(FILE *outfile, mergedata *data, revision *revisions, char *redefined_root, int orig_size, off_t con_len, off_t pcon_len) {
 	int i, v_size, diff, to, from;
 	int size = 0;
+	char *temp;
 	for (i = 0; i < data->size; ++i) {
-		size += get_mergerow_size(data, revisions, i);
+		size += get_mergerow_size(data, revisions, redefined_root, i);
 	}
 	v_size = size - 1; // The last (first?) newline doesn't count towards value length.
 	size += num_len(v_size) + 3; // "V XXX\n"
@@ -691,11 +784,20 @@ void write_mergeinfo(FILE *outfile, mergedata *data, revision *revisions, int or
 	for (i = 0; i < data->size; ++i) {
 		to = revisions[data->to[i]].number;
 		from = revisions[data->from[i]].number;
-		if (to == from) {
-			fprintf(outfile, "/%s:%d\n", data->path[i], to);
+		if (redefined_root) {
+			temp = reduce_path(redefined_root, data->path[i]);
 		}
 		else {
-			fprintf(outfile, "/%s:%d-%d\n", data->path[i], from, to);
+			temp = data->path[i];
+		}
+		if (to == from) {
+			fprintf(outfile, "/%s:%d\n", temp, to);
+		}
+		else {
+			fprintf(outfile, "/%s:%d-%d\n", temp, from, to);
+		}
+		if (redefined_root) {
+			free(temp);
 		}
 	}
 }
@@ -708,8 +810,10 @@ void write_mergeinfo(FILE *outfile, mergedata *data, revision *revisions, int or
 
 int main(int argc, char **argv) {
 	// Misc temporary variables
- 	int i, j, k, ch, want_by_default, new_number, empty, temp_int, is_dir;
+ 	int i, j, k, ch, want_by_default, new_number, empty, temp_int, is_dir, should_do;
 	off_t offset, con_len, pcon_len;
+	time_t rawtime;
+	struct tm *ptm;
 	char *temp_str = NULL;
 	char *temp_str2 = NULL;
 	char *minfo = NULL;
@@ -722,6 +826,7 @@ int main(int argc, char **argv) {
 	int excl = 0;
 	int drop = 0;
 	int redef = 0;
+	int del = 0;
 
 	// Variables related to files and paths
 	FILE *infile = NULL;
@@ -731,12 +836,14 @@ int main(int argc, char **argv) {
 	char **exclude = NULL; // Holds the paths the user wants to discard
 	char **exc_slash = NULL;
 	char **inc_slash = NULL;
+	char **to_delete = NULL;
 	char *redefined_root = NULL;
+	node **redef_rollback = NULL;
 
 	// Variables to hold the size of 2D pseudoarrays
 	int inc_len = 0;
 	int exc_len = 0;
-	int no_len = 0;
+	int del_len = 0;
 	int cur_len = 0;
 	int cur_max = 80;
 
@@ -764,6 +871,7 @@ int main(int argc, char **argv) {
 	node *current_node = NULL;
 	node **node_ptr = NULL;
 
+	// Create repotree root node
 	repotree rt;
 	rt.children = NULL;
 	rt.path = NULL;
@@ -804,7 +912,8 @@ int main(int argc, char **argv) {
 			excl = (!strcmp(argv[i], "--exclude") || !strcmp(argv[i], "-e"));
 			drop = (!strcmp(argv[i], "--drop-empty") || !strcmp(argv[i], "-d"));
 			redef = (!strcmp(argv[i], "--redefine-root") || !strcmp(argv[i], "-r"));
-			if (!(in || out || incl || excl || drop || redef)) {
+			del = (!strcmp(argv[i], "--add-delete") || !strcmp(argv[i], "-a"));
+			if (!(in || out || incl || excl || drop || redef || del)) {
 				exit_with_error(strcat(argv[i], " is not a valid parameter. Use -h for help."), 1);
 			}
 			else if (drop) {
@@ -850,8 +959,7 @@ int main(int argc, char **argv) {
 			++exc_len;
 		}
 		else if (redef && redefined_root == NULL) {
-			fprintf(stderr, "WARNING: Redefined root does not work in this version, and will be ignored.\n");
-			//redefined_root = argv[i];
+			redefined_root = argv[i];
 		}
 		else {
 			exit_with_error(strcat(argv[i], " is not a valid parameter. Use -h for help."), 1);
@@ -1074,11 +1182,11 @@ int main(int argc, char **argv) {
 			if (revisions[i].nodes[j].copyfrom || revisions[i].nodes[j].action == DELETE) {
 				if (revisions[i].nodes[j].copyfrom) {
 					subtree = get_subtree(&rt, revisions[i].nodes[j].copyfrom, 1);
-					node_ptr = get_relevant_nodes_at_revision(subtree, revisions[i].nodes[j].copyfrom_rev, &temp_int);
+					node_ptr = get_relevant_nodes_at_revision(subtree, revisions[i].nodes[j].copyfrom_rev, 0, &temp_int);
 				}
 				else {
 					subtree = get_subtree(&rt, revisions[i].nodes[j].path, 1);
-					node_ptr = get_relevant_nodes_at_revision(subtree, i, &temp_int);
+					node_ptr = get_relevant_nodes_at_revision(subtree, i, 0, &temp_int);
 				}
 				if (temp_int == 0) {
 					continue;
@@ -1132,24 +1240,16 @@ int main(int argc, char **argv) {
 		}
 		for (i = rev_len - 1; i > 0; --i) {
 			for (j = 0; j < revisions[i].size; ++j) {
-				for (k = 0; k < inc_len; ++k) {
-					if (starts_with(revisions[i].nodes[j].path, inc_slash[k]) || strcmp(revisions[i].nodes[j].path, include[k]) == 0) {
-						set_wanted(&revisions[i].nodes[j]);
-					}
+				if (is_cluded(revisions[i].nodes[j].path, include, inc_slash, inc_len)) {
+					set_wanted(&revisions[i].nodes[j]);
 				}
 			}
 			for (j = 0; j < revisions[i].fake_size; ++j) {
-				for (k = 0; k < inc_len; ++k) {
-					if (starts_with(revisions[i].fakes[j]->path, inc_slash[k]) || strcmp(revisions[i].fakes[j]->path, include[k]) == 0) {
-						set_wanted(revisions[i].fakes[j]);
-					}
+				if (is_cluded(revisions[i].fakes[j]->path, include, inc_slash, inc_len)) {
+					set_wanted(revisions[i].fakes[j]);
 				}
 			}
 		}
-		for (i = 0; i < inc_len; ++i) {
-			free(inc_slash[i]);
-		}
-		free(inc_slash);
 	}
 	// Exclude strategy
 	else {
@@ -1162,22 +1262,18 @@ int main(int argc, char **argv) {
 		parse_exclude_preparation(revisions, exclude, exc_slash, rev_len, exc_len);
 		for (i = rev_len - 1; i > 0; --i) {
 			for (j = 0; j < revisions[i].size; ++j) {
-				if (!is_excluded(revisions[i].nodes[j].path, exclude, exc_slash, exc_len)) {
+				if (!is_cluded(revisions[i].nodes[j].path, exclude, exc_slash, exc_len)) {
 					set_wanted(&revisions[i].nodes[j]);
 				}
 			}
 		}
 		for (i = rev_len - 1; i > 0; --i) {
 			for (j = 0; j < revisions[i].fake_size; ++j) {
-				if (!is_excluded(revisions[i].fakes[j]->path, exclude, exc_slash, exc_len)) {
+				if (!is_cluded(revisions[i].fakes[j]->path, exclude, exc_slash, exc_len)) {
 					set_wanted(revisions[i].fakes[j]);
 				}
 			}
 		}
-		for (i = 0; i < exc_len; ++i) {
-			free(exc_slash[i]);
-		}
-		free(exc_slash);
 	}
 
 	// Restore wanted delete nodes
@@ -1212,11 +1308,65 @@ int main(int argc, char **argv) {
 	}
 	fprintf(messages, "\n");
 
+	// Remove any directory entries that should no longer exist with the redefined root
+	if (redefined_root) {
+		// First check whether the redefining even has a chance to succeed. If we have a redefined root of
+		// "trunk/foo", and then try to do a copyfrom operation from "trunk", we're pretty much doomed...
+		for (i = 0; i < rev_len; ++i) {
+			for (j = 0; j < revisions[i].size; ++j) {
+				if (revisions[i].nodes[j].copyfrom && revisions[i].nodes[j].wanted) {
+					temp_str = reduce_path(redefined_root, revisions[i].nodes[j].copyfrom);
+					if (strcmp(temp_str, "") == 0 && strcmp(redefined_root, revisions[i].nodes[j].copyfrom) != 0) {
+						fprintf(stderr, "WARNING: Critical files detected upstream of redefined root.\n         Redefine operation will not be performed.\n");
+						redefined_root = NULL;
+						free(temp_str);
+						goto write_out;
+					}
+					free(temp_str);
+				}
+			}
+		}
+		temp_int = 0;
+		for (i = rev_len - 1; i >= 0; --i) {
+			for (j = revisions[i].size - 1; j >= 0; --j) {
+				if (revisions[i].nodes[j].wanted) {
+					temp_str = add_slash_to(redefined_root);
+					for (k = strlen(temp_str) - 1; k > 0; --k) {
+						if (temp_str[k] == '/') {
+							temp_str[k] = '\0';
+							if (strcmp(temp_str, revisions[i].nodes[j].path) == 0) {
+								if (revisions[i].nodes[j].wanted) {
+									if ((redef_rollback = (node**)realloc(redef_rollback, (temp_int + 1) * sizeof(node*))) == NULL) {
+										exit_with_error("realloc failed", 2);
+									}
+									redef_rollback[temp_int] = &revisions[i].nodes[j];
+									++temp_int;
+								}
+								revisions[i].nodes[j].wanted = 0;
+							}
+						}
+					}
+					free(temp_str);
+				}
+			}
+		}
+		// Check that there are no collisions, roll back if there are.
+		if (has_redefine_collisions(&rt, &rt, redefined_root)) {
+			fprintf(stderr, "WARNING: File collisions detected with redefined root.\n         Redefine operation will not be performed.\n");
+			redefined_root = NULL;
+			for (i = 0; i < temp_int; ++i) {
+				redef_rollback[i]->wanted = 1;
+			}
+		}
+		free(redef_rollback);
+	}
+	
 	/***********************************************************************************
 	 *
 	 * Write the outfile
 	 *
 	 ***********************************************************************************/
+ write_out:
 	if (mi_len > 0) {
 		act_mi = 0;
 	}
@@ -1253,7 +1403,7 @@ int main(int argc, char **argv) {
 					con_len = (off_t)atol(&current_line[16]);
 					if (writing) {
 						if (pcon_len) {
-							write_mergeinfo(outfile, mi[act_mi].data, revisions, mi[act_mi].orig_size, con_len, pcon_len);
+							write_mergeinfo(outfile, mi[act_mi].data, revisions, redefined_root, mi[act_mi].orig_size, con_len, pcon_len);
 							// -10 is because of the "PROPS-END\n" that is included in orig_size.
 							fseeko(infile, mi[act_mi].orig_size - 10, SEEK_CUR);
 							while (fgetc(infile) != NEWLINE) {}
@@ -1331,8 +1481,98 @@ int main(int argc, char **argv) {
 			current_line[cur_len] = '\0';
 		}
 	}
-	fprintf(messages, "\nAll done.\n");
 
+	// Add deleting revision if wanted.
+	if (del) {
+		node_ptr = get_relevant_nodes_at_revision(&rt, rev_len, 1, &temp_int);
+		if (include) {
+			for (i = 0; i < temp_int; ++i) {
+				should_do = 1;
+				if (!is_cluded(node_ptr[i]->path, include, inc_slash, inc_len)) {
+					temp_str = add_slash_to(node_ptr[i]->path);
+					for (j = 0; j < inc_len; ++j) {
+						if (starts_with(include[j], temp_str)) {
+							should_do = 0;
+							break;
+						}
+					}
+					free(temp_str);
+					if (!should_do) {
+						continue;
+					}
+					for (j = 0; j < del_len; ++j) {
+						temp_str = add_slash_to(to_delete[j]);
+						if (starts_with(node_ptr[i]->path, temp_str)) {
+							free(temp_str);
+							should_do = 0;
+							break;
+						}
+						free(temp_str);
+					}
+					if (should_do) {
+						if ((to_delete = (char**)realloc(to_delete, (del_len + 1) * sizeof(char*))) == NULL) {
+							exit_with_error("realloc failed", 2);
+						}
+						to_delete[del_len] = node_ptr[i]->path;
+						++del_len;
+					}
+				}
+			}
+		}
+		else {
+			for (i = 0; i < temp_int; ++i) {
+				should_do = 1;
+				if (is_cluded(node_ptr[i]->path, exclude, exc_slash, exc_len)) {
+					for (j = 0; j < del_len; ++j) {
+						temp_str = add_slash_to(to_delete[j]);
+						if (starts_with(node_ptr[i]->path, temp_str)) {
+							free(temp_str);
+							should_do = 0;
+							break;
+						}
+						free(temp_str);
+					}
+					if (should_do) {
+						if ((to_delete = (char**)realloc(to_delete, (del_len + 1) * sizeof(char*))) == NULL) {
+							exit_with_error("realloc failed", 2);
+						}
+						to_delete[del_len] = node_ptr[i]->path;
+						++del_len;
+					}
+				}
+			}
+		}
+		free(node_ptr);
+	}
+
+	if (del_len > 0) {
+		time(&rawtime);
+		ptm = gmtime(&rawtime);
+		if (drop_empty) {
+			i = 1;
+			do {
+				temp_int = revisions[rev_len - i].number + 1;
+				++i;
+			} while (temp_int == 0);
+		}
+		else {
+			temp_int = rev_len;
+		}
+		fprintf(outfile, "Revision-number: %d\n", temp_int);
+		fprintf(outfile, "Prop-content-length: 133\n");
+		fprintf(outfile, "Content-length: 133\n\n");
+		fprintf(outfile, "K 7\nsvn:log\nV 22\n");
+		fprintf(outfile, "Deleted unwanted nodes\n");
+		fprintf(outfile, "K 10\nsvn:author\nV 16\nsvndumpsanitizer\nK 8\nsvn:date\nV 27\n");
+		fprintf(outfile, "%d-%.2d-%.2dT%.2d:%.2d:%.2d.000000Z\n", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec);
+		fprintf(outfile, "PROPS-END\n\n");
+		for (i = 0; i < del_len; ++i) {
+			fprintf(outfile, "Node-path: %s\n", to_delete[i]);
+			fprintf(outfile, "Node-action: delete\n\n\n");
+		}
+	}
+	
+	fprintf(messages, "\nAll done.\n");
 	// Clean everything up
 	fclose(infile);
 	if (to_file) {
@@ -1360,11 +1600,20 @@ int main(int argc, char **argv) {
 		free(mi[i].data);
 	}
 	free(mi);
+	for (i = 0; i < inc_len; ++i) {
+		free(inc_slash[i]);
+	}
+	free(inc_slash);
+	for (i = 0; i < exc_len; ++i) {
+		free(exc_slash[i]);
+	}
+	free(exc_slash);
 	free_tree(&rt);
 	free(rt.children);
 	free(revisions);
 	free(include);
 	free(exclude);
-	free(current_line);	
+	free(current_line);
+	free(to_delete);
 	return 0;
 }
