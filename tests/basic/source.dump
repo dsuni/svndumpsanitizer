@@ -1,0 +1,949 @@
+SVN-fs-dump-format-version: 2
+
+UUID: 08343f83-7350-4c79-8009-1afc9f34e15e
+
+Revision-number: 0
+Prop-content-length: 56
+Content-length: 56
+
+K 8
+svn:date
+V 27
+2011-07-14T08:23:10.835104Z
+PROPS-END
+
+Revision-number: 1
+Prop-content-length: 126
+Content-length: 126
+
+K 7
+svn:log
+V 26
+Added basic dir structure.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-14T08:24:18.688347Z
+PROPS-END
+
+Node-path: branches
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: tags
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: trunk
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 2
+Prop-content-length: 129
+Content-length: 129
+
+K 7
+svn:log
+V 29
+Added the file dowant/README.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-14T08:25:50.526879Z
+PROPS-END
+
+Node-path: trunk/dowant
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: trunk/dowant/README
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 15
+Text-content-md5: ff079d0ac90baaabb13c53af985bf090
+Text-content-sha1: 8a69ee28b34031d95b265be72923468bf461c3c1
+Content-length: 25
+
+PROPS-END
+Stuff to keep.
+
+
+Revision-number: 3
+Prop-content-length: 132
+Content-length: 132
+
+K 7
+svn:log
+V 32
+Added the file donotwant/README.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-14T08:27:16.854467Z
+PROPS-END
+
+Node-path: trunk/donotwant
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: trunk/donotwant/README
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 21
+Text-content-md5: eca74ebf851947dea40107b719c00c2e
+Text-content-sha1: 1f616ceefeb74cb106fc1a8d1fcf270d0b049570
+Content-length: 31
+
+PROPS-END
+Stuff to throw away.
+
+
+Revision-number: 4
+Prop-content-length: 126
+Content-length: 126
+
+K 7
+svn:log
+V 26
+Modified the README files.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-14T08:28:15.937884Z
+PROPS-END
+
+Node-path: trunk/donotwant/README
+Node-kind: file
+Node-action: change
+Text-content-length: 42
+Text-content-md5: 79adf18635b41df3fa4e40a6fc88c134
+Text-content-sha1: b15152607e1654d4206c451659db84f28a4c04a8
+Content-length: 42
+
+Stuff to throw away.
+A slight addition...
+
+
+Node-path: trunk/dowant/README
+Node-kind: file
+Node-action: change
+Text-content-length: 36
+Text-content-md5: c5c2288e5bde2bdaa6aa8825d4458213
+Text-content-sha1: cac9084b9e9c0aad4ae5c894544f5040edcaa225
+Content-length: 36
+
+Stuff to keep.
+A slight addition...
+
+
+Revision-number: 5
+Prop-content-length: 126
+Content-length: 126
+
+K 7
+svn:log
+V 26
+Added Hello World-program.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-18T05:08:02.873880Z
+PROPS-END
+
+Node-path: trunk/donotwant/hello.c
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 79
+Text-content-md5: 4645f3722ac75ca4ada6b4011d716176
+Text-content-sha1: cae1b53ddf9cfa0b73b0914419e9d228d9956c82
+Content-length: 89
+
+PROPS-END
+#include <stdio.h>
+
+int main (void) {
+	printf ("Hello, world\n");
+	return 0;
+}
+
+
+Revision-number: 6
+Prop-content-length: 130
+Content-length: 130
+
+K 7
+svn:log
+V 30
+Modified Hello, World program.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-18T05:26:58.973258Z
+PROPS-END
+
+Node-path: trunk/donotwant/hello.c
+Node-kind: file
+Node-action: change
+Text-content-length: 131
+Text-content-md5: 41afa8545bbfa57967afcdce7290453b
+Text-content-sha1: eec599e553cf288ee44c56376ed16e05f6c8477d
+Content-length: 131
+
+#include <stdio.h>
+
+// This program will display a friendly greeting.
+
+int main (void) {
+	printf ("Hello, World!\n");
+	return 0;
+}
+
+
+Revision-number: 7
+Prop-content-length: 135
+Content-length: 135
+
+K 7
+svn:log
+V 35
+Moved hello.c to the dowant folder.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-18T05:33:19.197601Z
+PROPS-END
+
+Node-path: trunk/donotwant/hello.c
+Node-action: delete
+
+
+Node-path: trunk/dowant/hello.c
+Node-kind: file
+Node-action: add
+Node-copyfrom-rev: 6
+Node-copyfrom-path: trunk/donotwant/hello.c
+Text-copy-source-md5: 41afa8545bbfa57967afcdce7290453b
+Text-copy-source-sha1: eec599e553cf288ee44c56376ed16e05f6c8477d
+
+
+Revision-number: 8
+Prop-content-length: 121
+Content-length: 121
+
+K 7
+svn:log
+V 21
+Just a random commit.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-19T05:56:56.708458Z
+PROPS-END
+
+Node-path: trunk/dowant/README
+Node-kind: file
+Node-action: change
+Text-content-length: 49
+Text-content-md5: 1a0498a4fab84592b659a1c1f20b4a45
+Text-content-sha1: 38b9971db2b7afae9e2d8ebe15450d933b74f432
+Content-length: 49
+
+Stuff to keep.
+A slight addition...
+Random stuff
+
+
+Revision-number: 9
+Prop-content-length: 117
+Content-length: 117
+
+K 7
+svn:log
+V 17
+Created a branch.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-19T05:58:50.340493Z
+PROPS-END
+
+Node-path: branches/my-testing-branch
+Node-kind: dir
+Node-action: add
+Node-copyfrom-rev: 7
+Node-copyfrom-path: trunk
+
+
+Node-path: branches/my-testing-branch/dowant/README
+Node-kind: file
+Node-action: delete
+
+Node-path: branches/my-testing-branch/dowant/README
+Node-kind: file
+Node-action: add
+Node-copyfrom-rev: 8
+Node-copyfrom-path: trunk/dowant/README
+Text-copy-source-md5: 1a0498a4fab84592b659a1c1f20b4a45
+Text-copy-source-sha1: 38b9971db2b7afae9e2d8ebe15450d933b74f432
+
+
+
+
+Revision-number: 10
+Prop-content-length: 162
+Content-length: 162
+
+K 7
+svn:log
+V 62
+Made significant performance improvement to hello.c in branch.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-19T06:06:05.251678Z
+PROPS-END
+
+Node-path: branches/my-testing-branch/dowant/hello.c
+Node-kind: file
+Node-action: change
+Text-content-length: 127
+Text-content-md5: 4f6e6a1c68383d4b7f458fcb93d75e83
+Text-content-sha1: 9cedc9c1388ef857924ce8b4adbfa5e025b4de73
+Content-length: 127
+
+#include <stdio.h>
+
+// This program will display a friendly greeting.
+
+int main (void) {
+	puts ("Hello, World!");
+	return 0;
+}
+
+
+Revision-number: 11
+Prop-content-length: 137
+Content-length: 137
+
+K 7
+svn:log
+V 37
+Added random cruft that nobody wants.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-19T06:08:00.351241Z
+PROPS-END
+
+Node-path: trunk/donotwant/README
+Node-kind: file
+Node-action: change
+Text-content-length: 66
+Text-content-md5: 5e28120b618b536c466b30d94c94b250
+Text-content-sha1: 1b427ef81380154e344a93f3e30c851f8d94ec43
+Content-length: 66
+
+Stuff to throw away.
+A slight addition...
+Just some random cruft.
+
+
+Revision-number: 12
+Prop-content-length: 146
+Content-length: 146
+
+K 7
+svn:log
+V 46
+Changed README and added Hello.java in branch.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-19T06:17:34.954487Z
+PROPS-END
+
+Node-path: branches/my-testing-branch/donotwant/Hello.java
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 109
+Text-content-md5: e99e755655f34bd1fadfd2337dfba614
+Text-content-sha1: 8d68ab600b39dc1713be5ea239dc37790a9da58a
+Content-length: 119
+
+PROPS-END
+public class Hello {
+	public static void main (String [] args) {
+		System.out.println("Hello, world!");
+	}
+}
+
+
+Node-path: branches/my-testing-branch/dowant/README
+Node-kind: file
+Node-action: change
+Text-content-length: 73
+Text-content-md5: 11a3ff128b90597153a4de98bd835f30
+Text-content-sha1: d9bb114efb511320a0269de0b77c52696799f616
+Content-length: 73
+
+Stuff to keep.
+A slight addition...
+Random stuff
+Just some more changes.
+
+
+Revision-number: 13
+Prop-content-length: 114
+Content-length: 114
+
+K 7
+svn:log
+V 14
+Added File.txt
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-19T06:29:21.341371Z
+PROPS-END
+
+Node-path: trunk/dowant/File.txt
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 19
+Text-content-md5: c653ffc9b5729b612ed272afc5202d0d
+Text-content-sha1: ff2cd2232f6f9620f849b8c54e3792fc79d120d3
+Content-length: 29
+
+PROPS-END
+Just another file.
+
+
+Revision-number: 14
+Prop-content-length: 125
+Content-length: 125
+
+K 7
+svn:log
+V 25
+Merged branch into trunk.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-19T06:44:02.324748Z
+PROPS-END
+
+Node-path: trunk
+Node-kind: dir
+Node-action: change
+Prop-content-length: 67
+Content-length: 67
+
+K 13
+svn:mergeinfo
+V 32
+/branches/my-testing-branch:8-13
+PROPS-END
+
+
+Node-path: trunk/donotwant/Hello.java
+Node-kind: file
+Node-action: add
+Node-copyfrom-rev: 13
+Node-copyfrom-path: branches/my-testing-branch/donotwant/Hello.java
+Text-copy-source-md5: e99e755655f34bd1fadfd2337dfba614
+Text-copy-source-sha1: 8d68ab600b39dc1713be5ea239dc37790a9da58a
+
+
+Node-path: trunk/dowant/README
+Node-kind: file
+Node-action: change
+Text-content-length: 73
+Text-content-md5: 11a3ff128b90597153a4de98bd835f30
+Text-content-sha1: d9bb114efb511320a0269de0b77c52696799f616
+Content-length: 73
+
+Stuff to keep.
+A slight addition...
+Random stuff
+Just some more changes.
+
+
+Node-path: trunk/dowant/hello.c
+Node-kind: file
+Node-action: change
+Text-content-length: 127
+Text-content-md5: 4f6e6a1c68383d4b7f458fcb93d75e83
+Text-content-sha1: 9cedc9c1388ef857924ce8b4adbfa5e025b4de73
+Content-length: 127
+
+#include <stdio.h>
+
+// This program will display a friendly greeting.
+
+int main (void) {
+	puts ("Hello, World!");
+	return 0;
+}
+
+
+Revision-number: 15
+Prop-content-length: 132
+Content-length: 132
+
+K 7
+svn:log
+V 32
+Removed no longer needed branch.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-19T06:45:56.852663Z
+PROPS-END
+
+Node-path: branches/my-testing-branch
+Node-action: delete
+
+
+Revision-number: 16
+Prop-content-length: 135
+Content-length: 135
+
+K 7
+svn:log
+V 35
+Added LISP version of Hello, World.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-19T07:25:21.710581Z
+PROPS-END
+
+Node-path: trunk/donotwant/hellp.lisp
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 42
+Text-content-md5: 858aaed33fda825f37300ff37046ed08
+Text-content-sha1: b6d28ea13e24e68c5384305697da4189eab12688
+Content-length: 52
+
+PROPS-END
+(defun hello ()
+	(print "Hello, World!"))
+
+
+Revision-number: 17
+Prop-content-length: 145
+Content-length: 145
+
+K 7
+svn:log
+V 45
+Corrected name of hello.lisp and fixed a bug.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-19T07:28:59.061774Z
+PROPS-END
+
+Node-path: trunk/donotwant/hello.lisp
+Node-kind: file
+Node-action: add
+Node-copyfrom-rev: 16
+Node-copyfrom-path: trunk/donotwant/hellp.lisp
+Text-copy-source-md5: 858aaed33fda825f37300ff37046ed08
+Text-copy-source-sha1: b6d28ea13e24e68c5384305697da4189eab12688
+Text-content-length: 42
+Text-content-md5: 0fd995e6478a84dcfa9bb6e0ab1194a2
+Text-content-sha1: 53cefda3d52b049b128a5a5f873cc25af7dcb17e
+Content-length: 42
+
+(defun hello ()
+	(princ "Hello, World!"))
+
+
+Node-path: trunk/donotwant/hellp.lisp
+Node-action: delete
+
+
+Revision-number: 18
+Prop-content-length: 138
+Content-length: 138
+
+K 7
+svn:log
+V 38
+Moved hello.lisp to correct directory.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-19T07:30:35.085192Z
+PROPS-END
+
+Node-path: trunk/donotwant/hello.lisp
+Node-action: delete
+
+
+Node-path: trunk/dowant/hello.lisp
+Node-kind: file
+Node-action: add
+Node-copyfrom-rev: 17
+Node-copyfrom-path: trunk/donotwant/hello.lisp
+Text-copy-source-md5: 0fd995e6478a84dcfa9bb6e0ab1194a2
+Text-copy-source-sha1: 53cefda3d52b049b128a5a5f873cc25af7dcb17e
+
+
+Revision-number: 19
+Prop-content-length: 120
+Content-length: 120
+
+K 7
+svn:log
+V 20
+Added a binary file.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-27T10:22:55.025673Z
+PROPS-END
+
+Node-path: trunk/dowant/master.tar.bz2
+Node-kind: file
+Node-action: add
+Prop-content-length: 59
+Text-content-length: 1154
+Text-content-md5: 7667e142358f49fb2a6ed874c2d0f234
+Text-content-sha1: 6327066822b3774810ea892d43826e525e0b67d3
+Content-length: 1213
+
+K 13
+svn:mime-type
+V 24
+application/octet-stream
+PROPS-END
+BZh91AY&SY'≠FÖ 
+œûÊú†`ˇ˜ˇˇ}0ˇÔﬂ¿  à@ @ P{/ù*† Ë™44 Ä  4”C@   2iBf† –†     4©&özç@        s	†4çFÉ¶&LM†d&RH)·îi0‘O’DzLÅâì‘)ÈÍöößKmØÓ{
+yF‰q§ y∆‡í†W…¨6öU‡\B% @A úKx”x%ªpÑ!mbåÀ)ÕëöqÑd»Ã—ú$»Ã Úí'D †ƒ0àâ–$XM*¬uÍèñ™ ˚_∞“ïU®í9I"à.∫IGË;◊…?ßl\åä6˜ˇUUU◊a€√·•π>_g˜w0ß-∏œljÍ’™πçV]—ô’ó¶L‚uÑ„$éi$Yæ=qháö+ù‰:í√â¥˜wÓ™™™™™™™Z:é#º“g—Ÿ‘4ﬂ¥h>1 ™•)∂À*Õ∂•[ïÆ«¶¢Î»BÑ!BHÑ!MdïF¨íªºñ1gú∫UT©Tìæ9EMÉ…ô6F∫äETä©Q3ô §8`í≠$vÒ“q™  $ê–LÅöP íBÍ∫Ut1·Y˘,∫¥"ñck∂8u≥˛zz˜zõ˘ıÍ˙"A‘íGsÊ‰¥ó»ã“H≠ÎÏÏíE÷©ÔÚYœn√döTá∞∂X˘ıÀµhœÚ{ÀìÓ˙e˙]~ÕÚHªV¥«™n“ÿ‘lX%°ëï◊	ÖI$o €Æ≤∞Ù“zèN˜˝◊…#Ö0–”e◊»k∆≠m¿\" ]“.‰—"“;ÍN∫H+^bÕQ±	YøKÄZ (Åj§ùM%≥œ+$E ¨‚ÑÖ∫∞dı’Ê˝&òU„*“Óà`ﬂ˜∑eù`Àv‹(›[L≥àaôàrH#2I"	$HíDLï™[§ãﬂ1jL°r’q%V+·nŸaÖÚ1©ròPùh5x ïD$ƒ—‚¿°¢®JB8uxSLo.$´Ô≥è9v7Çjà]ú≠2÷kÀnÀ≤3::d∫Õs_yÆ;Ã’Ùåcc{iâ\~QÍã§èlSÑvEí«î´OdYe£â…¯∆ä£æΩÛ£Ïë'(∆IÒˆã¢…N9}ü¬?(ÛcbN±ÿ<¶I/íF§>Ÿ$wº—¿Úr⁄ÜÆj'£ı¯¸©;EÁú„çíx‰ëÓíGWeAªƒ9é18ÚäI”óDìµP˘œå˜‹›M…=±a‚I£{z ¡$çÁè<x‰‘1ÉË7«=–|;£·˛lxQ˘≠◊hÔeG@yv≈π&ıá)$Ncƒ0ãÛ§è∆%√Ë¢v ì`“MíHƒâÕ•&Q16∆≤1ã†¥¥™≈*¬÷™™    •ßBJîï)•]™≠6Î6⁄°…v$ëÈà◊¢=ÒÁãáÅÁR*Dñ∫âdí;ñ —r¡¿zcRLFëMë{$í6¡˙£¬I∆∏Ãi1ú!Që∞·
+˘»?¯ªí)¬ÑÅ=j4(
+
+Revision-number: 20
+Prop-content-length: 137
+Content-length: 137
+
+K 7
+svn:log
+V 37
+Added a dumpfile, for increased evil.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-27T10:25:45.985114Z
+PROPS-END
+
+Node-path: trunk/donotwant/evil.dump
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 2594
+Text-content-md5: 3b3dbf94acfb11e6a2f9d47c7f4c422c
+Text-content-sha1: 0a1e9ca7be6d61769f084b6c5442a25c7626c69c
+Content-length: 2604
+
+PROPS-END
+SVN-fs-dump-format-version: 2
+
+UUID: 08343f83-7350-4c79-8009-1afc9f34e15e
+
+Revision-number: 0
+Prop-content-length: 56
+Content-length: 56
+
+K 8
+svn:date
+V 27
+2011-07-14T08:23:10.835104Z
+PROPS-END
+
+Revision-number: 1
+Prop-content-length: 126
+Content-length: 126
+
+K 7
+svn:log
+V 26
+Added basic dir structure.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-14T08:24:18.688347Z
+PROPS-END
+
+Node-path: branches
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: tags
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: trunk
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 2
+Prop-content-length: 129
+Content-length: 129
+
+K 7
+svn:log
+V 29
+Added the file dowant/README.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-14T08:25:50.526879Z
+PROPS-END
+
+Node-path: trunk/dowant
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: trunk/dowant/README
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 15
+Text-content-md5: ff079d0ac90baaabb13c53af985bf090
+Text-content-sha1: 8a69ee28b34031d95b265be72923468bf461c3c1
+Content-length: 25
+
+PROPS-END
+Stuff to keep.
+
+
+Revision-number: 3
+Prop-content-length: 132
+Content-length: 132
+
+K 7
+svn:log
+V 32
+Added the file donotwant/README.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-14T08:27:16.854467Z
+PROPS-END
+
+Node-path: trunk/donotwant
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: trunk/donotwant/README
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 21
+Text-content-md5: eca74ebf851947dea40107b719c00c2e
+Text-content-sha1: 1f616ceefeb74cb106fc1a8d1fcf270d0b049570
+Content-length: 31
+
+PROPS-END
+Stuff to throw away.
+
+
+Revision-number: 4
+Prop-content-length: 126
+Content-length: 126
+
+K 7
+svn:log
+V 26
+Modified the README files.
+K 10
+svn:author
+V 5
+dsuni
+K 8
+svn:date
+V 27
+2011-07-14T08:28:15.937884Z
+PROPS-END
+
+Node-path: trunk/donotwant/README
+Node-kind: file
+Node-action: change
+Text-content-length: 42
+Text-content-md5: 79adf18635b41df3fa4e40a6fc88c134
+Text-content-sha1: b15152607e1654d4206c451659db84f28a4c04a8
+Content-length: 42
+
+Stuff to throw away.
+A slight addition...
+
+
+Node-path: trunk/dowant/README
+Node-kind: file
+Node-action: change
+Text-content-length: 36
+Text-content-md5: c5c2288e5bde2bdaa6aa8825d4458213
+Text-content-sha1: cac9084b9e9c0aad4ae5c894544f5040edcaa225
+Content-length: 36
+
+Stuff to keep.
+A slight addition...
+
+
+
+
+Node-path: trunk/dowant/File.txt
+Node-action: delete
+
+

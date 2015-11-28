@@ -1,0 +1,102 @@
+SVN-fs-dump-format-version: 2
+
+UUID: 9b4a1d71-03e7-44ae-bf6e-144308e45b28
+
+Revision-number: 0
+Prop-content-length: 56
+Content-length: 56
+
+K 8
+svn:date
+V 27
+2015-09-27T10:27:57.747941Z
+PROPS-END
+
+Revision-number: 1
+Prop-content-length: 113
+Content-length: 113
+
+K 10
+svn:author
+V 6
+daniel
+K 8
+svn:date
+V 27
+2015-09-27T10:58:13.246269Z
+K 7
+svn:log
+V 12
+First commit
+PROPS-END
+
+Node-path: foo
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: foo/xxx
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+
+Node-path: foo/xxx/trunk
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: foo/xxx/trunk/file1.txt
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 15
+Text-content-md5: a86e2699931d4f3d1456e79383749e43
+Text-content-sha1: 799c11e348d39f1704022b8354502e2f81f3c037
+Content-length: 25
+
+PROPS-END
+This is a file
+
+
+Revision-number: 2
+Prop-content-length: 109
+Content-length: 109
+
+K 10
+svn:author
+V 6
+daniel
+K 8
+svn:date
+V 27
+2015-09-27T10:59:58.011157Z
+K 7
+svn:log
+V 9
+Moved xxx
+PROPS-END
+
+Node-path: foo/bar
+Node-kind: dir
+Node-action: add
+Node-copyfrom-rev: 1
+Node-copyfrom-path: foo/xxx
+
+
+Node-path: foo/xxx
+Node-action: delete
+
+

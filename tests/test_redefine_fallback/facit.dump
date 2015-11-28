@@ -1,0 +1,168 @@
+SVN-fs-dump-format-version: 2
+
+UUID: c829505a-a842-475a-aeb1-cac19f49f8e5
+
+Revision-number: 0
+Prop-content-length: 56
+Content-length: 56
+
+K 8
+svn:date
+V 27
+2015-09-19T06:06:41.063146Z
+PROPS-END
+
+Revision-number: 1
+Prop-content-length: 112
+Content-length: 112
+
+K 10
+svn:author
+V 6
+daniel
+K 8
+svn:date
+V 27
+2015-09-19T06:10:01.371726Z
+K 7
+svn:log
+V 11
+Added stuff
+PROPS-END
+
+Node-path: foo
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: foo/bar
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: foo/bar/file.txt
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 15
+Text-content-md5: a86e2699931d4f3d1456e79383749e43
+Text-content-sha1: 799c11e348d39f1704022b8354502e2f81f3c037
+Content-length: 25
+
+PROPS-END
+This is a file
+
+
+Revision-number: 2
+Prop-content-length: 111
+Content-length: 111
+
+K 10
+svn:author
+V 6
+daniel
+K 8
+svn:date
+V 27
+2015-09-19T06:12:25.071968Z
+K 7
+svn:log
+V 10
+Added dirs
+PROPS-END
+
+Node-path: trunk
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: trunk/project
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 3
+Prop-content-length: 111
+Content-length: 111
+
+K 10
+svn:author
+V 6
+daniel
+K 8
+svn:date
+V 27
+2015-09-19T06:14:29.232264Z
+K 7
+svn:log
+V 10
+More stuff
+PROPS-END
+
+Node-path: trunk/project/foo
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: trunk/project/foo/file2.txt
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 20
+Text-content-md5: 8c9ab0463d5c9da8e9bbf8585b45287e
+Text-content-sha1: 948fc74de12b8dbc3cbe86d18ee0106c504256c0
+Content-length: 30
+
+PROPS-END
+This is also a file
+
+
+Revision-number: 4
+Prop-content-length: 119
+Content-length: 119
+
+K 10
+svn:author
+V 6
+daniel
+K 8
+svn:date
+V 27
+2015-09-19T06:15:46.611546Z
+K 7
+svn:log
+V 18
+Moved stuff around
+PROPS-END
+
+Node-path: trunk/project/foo/bar
+Node-kind: dir
+Node-action: add
+Node-copyfrom-rev: 1
+Node-copyfrom-path: foo/bar
+
+
+Node-path: foo
+Node-action: delete
+
+
