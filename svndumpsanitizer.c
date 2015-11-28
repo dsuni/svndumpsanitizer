@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 2.0.0 Beta 2, released 22 Nov 2015
+	svndumpsanitizer version 2.0.0 RC1, released 28 Nov 2015
 
 	Copyright 2011,2012,2013,2014,2015 Daniel Suni
 
@@ -33,7 +33,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "2.0.0 Beta 2"
+#define SDS_VERSION "2.0.0 RC1"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -132,6 +132,13 @@ void show_help_and_exit() {
 	printf("\t\t\"-n foo/bar/trunk -r foo/bar/trunk\" - OK.\n");
 	printf("\t\t\"-n foo/bar/trunk foo/baz/trunk -r foo\" - OK.\n");
 	printf("\t\t\"-n foo/bar/trunk foo/baz/trunk -r foo/bar\" - WRONG.\n\n");
+	printf("\t-q, --query\n");
+	printf("\t\tOption used mostly for debugging purposes. If passed, svndumpsanitizer will after\n");
+	printf("\t\treading and analyzing (but before writing) enter an interactive state where the user\n");
+	printf("\t\tcan query the rationale why specific files are being included with the given options.\n");
+	printf("\t\tThis query will locate the *first* dependency it can find that will include the file,\n");
+	printf("\t\tnot all the dependencies, which might be numerous. When done, one can opt to either\n");
+	printf("\t\tquit or proceed with writing the outfile.\n\n");
 	printf("\t-v, --version\n");
 	printf("\t\tPrint version and exit.\n");
 	exit(0);
@@ -310,6 +317,35 @@ int is_cluded(char *path, char **paths, char **paths_slash, int len) {
 		}
 	}
 	return 0;
+}
+
+void print_why(node **nptr, char **inc, char **i_slash, char **exc, char **e_slash, char *why, int n_len, int i_len, int e_len) {
+	int i, j;
+	if (n_len < 0) {
+		printf("Path %s does not seem to be included.\n", why);
+		return;
+	}
+	for (i = n_len; i >= 0; --i) {
+		printf("Revision %d: Path: %s  ", nptr[i]->revision, nptr[i]->path);
+		for (j = 0; j < nptr[i]->dep_len; ++j) {
+			if (nptr[i]->revision == nptr[i]->deps[j]->revision && nptr[i]->deps[j]->copyfrom) {
+				printf(" (created by \"%s\" copyfrom \"%s\")", nptr[i]->deps[j]->path, nptr[i]->deps[j]->copyfrom);
+				break;
+			}
+		}
+		if (inc) {
+			if (is_cluded(nptr[i]->path, inc, i_slash, i_len)) {
+				printf(" PULLED BY INCLUDE");
+			}
+		}
+		else if (!is_cluded(nptr[i]->path, exc, e_slash, e_len)) {
+			printf(" NOT EXCLUDED");
+		}
+		if (i > 0) {
+			printf(" depends on:");
+		}
+		printf("\n");
+	}
 }
 
 // Dumb exclude that just marks excludes as unwanted. We'll have to come back
@@ -567,6 +603,21 @@ void add_merge_dep_to_node(repotree *rt, node *n, char *mergefrom, char *mergeto
 	}
 }
 
+int get_max_path_size(repotree *rt) {
+	int i, current;
+	int max = 0;
+	if (rt->chi_len == 0) {
+		return strlen(rt->path);
+	}
+	for (i = 0; i < rt->chi_len; ++i) {
+		current = get_max_path_size(&rt->children[i]);
+		if (current > max) {
+			max = current;
+		}
+	}
+	return max;
+}
+
 // Add event to repo tree. If the path in question does not yet exist, we add it to the tree.
 // If it does exists we add it to the map. Dependencies are added for non-ADD-type nodes.
 // ADD-types are either new files (=doesn't need this dependency) or copyfrom instances
@@ -810,7 +861,7 @@ void write_mergeinfo(FILE *outfile, mergedata *data, revision *revisions, char *
 
 int main(int argc, char **argv) {
 	// Misc temporary variables
- 	int i, j, k, ch, want_by_default, new_number, empty, temp_int, is_dir, should_do;
+ 	int i, j, k, ch, want_by_default, new_number, empty, temp_int, is_dir, should_do, maxp_len;
 	off_t offset, con_len, pcon_len;
 	time_t rawtime;
 	struct tm *ptm;
@@ -818,6 +869,8 @@ int main(int argc, char **argv) {
 	char *temp_str2 = NULL;
 	char *minfo = NULL;
 	int to_file = 1;
+	int query = 0;
+	int add_delete = 0;
 
 	// Variables to help analyze user input 
 	int in = 0;
@@ -827,6 +880,7 @@ int main(int argc, char **argv) {
 	int drop = 0;
 	int redef = 0;
 	int del = 0;
+	int why = 0;
 
 	// Variables related to files and paths
 	FILE *infile = NULL;
@@ -838,6 +892,7 @@ int main(int argc, char **argv) {
 	char **inc_slash = NULL;
 	char **to_delete = NULL;
 	char *redefined_root = NULL;
+	char *why_file = NULL;
 	node **redef_rollback = NULL;
 
 	// Variables to hold the size of 2D pseudoarrays
@@ -913,11 +968,18 @@ int main(int argc, char **argv) {
 			drop = (!strcmp(argv[i], "--drop-empty") || !strcmp(argv[i], "-d"));
 			redef = (!strcmp(argv[i], "--redefine-root") || !strcmp(argv[i], "-r"));
 			del = (!strcmp(argv[i], "--add-delete") || !strcmp(argv[i], "-a"));
-			if (!(in || out || incl || excl || drop || redef || del)) {
+			why = (!strcmp(argv[i], "--query") || !strcmp(argv[i], "-q"));
+			if (!(in || out || incl || excl || drop || redef || del || why)) {
 				exit_with_error(strcat(argv[i], " is not a valid parameter. Use -h for help."), 1);
 			}
 			else if (drop) {
 				drop_empty = 1;
+			}
+			else if (del) {
+				add_delete = 1;
+			}
+			else if (why) {
+				query = 1;
 			}
 		}
 		else if (in && infile == NULL) {
@@ -1276,6 +1338,79 @@ int main(int argc, char **argv) {
 		}
 	}
 
+	/***********************************************************************************
+	 *
+	 * If user wants to question the reason for files being included, we do that now.
+	 *
+	 ***********************************************************************************/
+	
+	if (query) {
+		maxp_len = get_max_path_size(&rt) + 10;
+		why_file = str_malloc(maxp_len);
+		do {
+			printf("\nPlease enter the full (case sensitive) path name you wish to inquire about\n\"/quit\" will exit program, and \"/write\" proceed with writing the outfile:\n");
+			fgets (why_file, maxp_len, stdin);
+			i = 0;
+			while (why_file[i] != NEWLINE && why_file[i] != '\0') {
+				++i;
+			}
+			why_file[i] = '\0';
+			if (strcmp(why_file, "/quit") == 0) {
+				free(why_file);
+				goto cleanup;
+			}
+			if (strcmp(why_file, "/write") == 0) {
+				free(why_file);
+				break;
+			}
+			node_ptr = NULL;
+			temp_int = -1;
+			for (i = 0; i < rev_len; ++i) {
+				for (j = 0; j < revisions[i].size; ++j) {
+					if (revisions[i].nodes[j].wanted) {
+						if (!node_ptr) {
+							if (strcmp(revisions[i].nodes[j].path, why_file) == 0) {
+								if ((node_ptr = (node**)malloc(sizeof(node*))) == NULL) {
+									exit_with_error("malloc failed", 2);
+								}
+								++temp_int;
+								node_ptr[temp_int] = &revisions[i].nodes[j];
+							}
+						}
+						else {
+							for (k = 0; k < revisions[i].nodes[j].dep_len; ++k) {
+								if (revisions[i].nodes[j].deps[k] == node_ptr[temp_int]) {
+									++temp_int;
+									if ((node_ptr = (node**)realloc(node_ptr, (temp_int + 1) * sizeof(node*))) == NULL) {
+										exit_with_error("realloc failed", 2);
+									}
+									node_ptr[temp_int] = &revisions[i].nodes[j];
+									break;
+								}
+							}
+						}
+					}
+				}
+				for (j = 0; j < revisions[i].fake_size; ++j) {
+					if (revisions[i].fakes[j]->wanted) {
+						for (k = 0; k < revisions[i].fakes[j]->dep_len; ++k) {
+							if (node_ptr && revisions[i].fakes[j]->deps[k] == node_ptr[temp_int]) {
+								++temp_int;
+								if ((node_ptr = (node**)realloc(node_ptr, (temp_int + 1) * sizeof(node*))) == NULL) {
+									exit_with_error("realloc failed", 2);
+								}
+								node_ptr[temp_int] = revisions[i].fakes[j];
+								break;
+							}
+						}
+					}
+				}
+			}
+			print_why(node_ptr, include, inc_slash, exclude, exc_slash, why_file, temp_int, inc_len, exc_len);
+			free(node_ptr);
+		}	while (1);
+	}
+	
 	// Restore wanted delete nodes
 	for (i = 0; i < rev_len; ++i) {
 		for (j = 0; j < revisions[i].size; ++j) {
@@ -1482,8 +1617,13 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	// Add deleting revision if wanted.
-	if (del) {
+	/***********************************************************************************
+	 *
+	 * Add deleting revision if wanted.
+	 *
+	 ***********************************************************************************/
+
+	if (add_delete) {
 		node_ptr = get_relevant_nodes_at_revision(&rt, rev_len, 1, &temp_int);
 		if (include) {
 			for (i = 0; i < temp_int; ++i) {
@@ -1574,6 +1714,7 @@ int main(int argc, char **argv) {
 	
 	fprintf(messages, "\nAll done.\n");
 	// Clean everything up
+ cleanup:
 	fclose(infile);
 	if (to_file) {
 		fclose(outfile);
