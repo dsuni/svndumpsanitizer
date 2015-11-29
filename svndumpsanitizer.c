@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 2.0.0 RC1, released 28 Nov 2015
+	svndumpsanitizer version 2.0.0 RC2, released 29 Nov 2015
 
 	Copyright 2011,2012,2013,2014,2015 Daniel Suni
 
@@ -33,7 +33,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "2.0.0 RC1"
+#define SDS_VERSION "2.0.0 RC2"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -499,6 +499,7 @@ int has_redefine_collisions(repotree *root, repotree *current, char *redefined_r
 void restore_delete_node_if_needed(repotree *rt, node *n) {
 	repotree *target = get_subtree(rt, n->path, 1);
 	int i = target->map_len - 1;
+	char *temp;
 	// Find the right pointer...
 	while (i >= 0 && target->map[i] != n) {
 		--i;
@@ -508,6 +509,16 @@ void restore_delete_node_if_needed(repotree *rt, node *n) {
 		if (target->map[i]->wanted) {
 			n->wanted = 2;
 			return;
+		}
+		// If it's a fake node we need to check whether the dependency responsible for the fake is wanted...
+		if (target->map[i]->action == ADD && target->map[i]->dep_len > 0 && target->map[i]->deps[0]->wanted && target->map[i]->deps[0]->copyfrom) {
+			temp = add_slash_to(target->map[i]->deps[0]->path);
+			if (starts_with(n->path, temp)) {
+				n->wanted = 3;
+				free(temp);
+				return;
+			}
+			free(temp);
 		}
 		--i;
 	}

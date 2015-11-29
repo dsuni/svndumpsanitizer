@@ -307,6 +307,9 @@ Node-copyfrom-rev: 7
 Node-copyfrom-path: trunk
 
 
+Node-path: branches/my-testing-branch/dowant/README
+Node-kind: file
+Node-action: delete
 
 Node-path: branches/my-testing-branch/dowant/README
 Node-kind: file
