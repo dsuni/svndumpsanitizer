@@ -1,0 +1,179 @@
+SVN-fs-dump-format-version: 2
+
+UUID: b96d9b1e-fef3-41a4-a639-91c62da66df6
+
+Revision-number: 0
+Prop-content-length: 56
+Content-length: 56
+
+K 8
+svn:date
+V 27
+2015-12-12T09:58:51.465689Z
+PROPS-END
+
+Revision-number: 1
+Prop-content-length: 113
+Content-length: 113
+
+K 10
+svn:author
+V 6
+daniel
+K 8
+svn:date
+V 27
+2015-12-12T10:01:13.467295Z
+K 7
+svn:log
+V 12
+First commit
+PROPS-END
+
+Node-path: trunk
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: trunk/cruft
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: trunk/cruft/file1.txt
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 15
+Text-content-md5: a86e2699931d4f3d1456e79383749e43
+Text-content-sha1: 799c11e348d39f1704022b8354502e2f81f3c037
+Content-length: 25
+
+PROPS-END
+This is a file
+
+
+Node-path: trunk/cruft/file2.txt
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 20
+Text-content-md5: 8c9ab0463d5c9da8e9bbf8585b45287e
+Text-content-sha1: 948fc74de12b8dbc3cbe86d18ee0106c504256c0
+Content-length: 30
+
+PROPS-END
+This is also a file
+
+
+Node-path: trunk/want
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 2
+Prop-content-length: 114
+Content-length: 114
+
+K 10
+svn:author
+V 6
+daniel
+K 8
+svn:date
+V 27
+2015-12-12T10:02:47.734518Z
+K 7
+svn:log
+V 13
+Second commit
+PROPS-END
+
+Node-path: branches
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: branches/cruft
+Node-kind: dir
+Node-action: add
+Node-copyfrom-rev: 1
+Node-copyfrom-path: trunk/cruft
+
+
+Revision-number: 3
+Prop-content-length: 113
+Content-length: 113
+
+K 10
+svn:author
+V 6
+daniel
+K 8
+svn:date
+V 27
+2015-12-12T10:04:24.784358Z
+K 7
+svn:log
+V 12
+Third commit
+PROPS-END
+
+Node-path: trunk/want/file1.txt
+Node-kind: file
+Node-action: add
+Node-copyfrom-rev: 2
+Node-copyfrom-path: branches/cruft/file1.txt
+Text-copy-source-md5: a86e2699931d4f3d1456e79383749e43
+Text-copy-source-sha1: 799c11e348d39f1704022b8354502e2f81f3c037
+Text-content-length: 32
+Text-content-md5: f1d07e100b09d6387d769af7a7cfa205
+Text-content-sha1: e9237d16102a821bbbdf00a4a04a033eafe55d91
+Content-length: 32
+
+This is a file
+What a nice file
+
+
+Revision-number: 4
+Prop-content-length: 114
+Content-length: 114
+
+K 10
+svn:author
+V 6
+daniel
+K 8
+svn:date
+V 27
+2015-12-12T10:06:54.772399Z
+K 7
+svn:log
+V 13
+Fourth commit
+PROPS-END
+
+Node-path: branches/cruft/file1.txt
+Node-action: delete
+
+
+Node-path: branches/cruft/file2.txt
+Node-action: delete
+
+
