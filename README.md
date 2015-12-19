@@ -2,7 +2,7 @@
 
 ## Home page
 
-This is an abridged version of the documentation available on the [project home page.](http://miria.homelinuxserver.org/svndumpsanitizer) For the full version please go there.
+This is a short version of the documentation available on the [project home page.](http://miria.homelinuxserver.org/svndumpsanitizer) For the full version please go there.
 
 ## Background
 
@@ -43,7 +43,7 @@ It is in fact quite understandable that svndumpfilter doesn't work. It's an aptl
 the subversion repository structure is too complicated for such an approach to even have a theoretical chance of working. When the filter is at revision 10, it has no way of knowing whether a node the user wants to discard, will be moved to a position he wishes to keep in revision 113. So it does the only thing it can do - it discards the node, and at revision 113 craps out because it has already discarded the data it turns out it would have needed.
 
 Svndumpsanitizer works in a different manner. It scans the nodes several times in order to discover which nodes should actually be kept. After it has determined which nodes to keep it writes only these nodes to the
-outfile. Finally - if necessary - it adds a commit that deletes any unwanted nodes that had to be kept in order not to break the repository. There are 6 steps in total. (7 if you want to drop empty revisions.)
+outfile. Finally - if necessary - it adds a commit that deletes any unwanted nodes that had to be kept in order not to break the repository.
 
 ## Limitations and upcoming features
 
