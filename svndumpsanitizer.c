@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 2.0.0 RC3, released 5 Dec 2015
+	svndumpsanitizer version 2.0.0, released 19 Dec 2015
 
 	Copyright 2011,2012,2013,2014,2015 Daniel Suni
 
@@ -33,7 +33,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "2.0.0 RC3"
+#define SDS_VERSION "2.0.0"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
