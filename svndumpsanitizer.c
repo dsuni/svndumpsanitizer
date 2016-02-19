@@ -1,7 +1,7 @@
 /*
-	svndumpsanitizer version 2.0.0, released 19 Dec 2015
+	svndumpsanitizer version 2.0.1, released 19 Feb 2016
 
-	Copyright 2011,2012,2013,2014,2015 Daniel Suni
+	Copyright 2011,2012,2013,2014,2015,2016 Daniel Suni
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "2.0.0"
+#define SDS_VERSION "2.0.1"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -299,6 +299,31 @@ int num_len(int num) {
 	return i;
 }
 
+// Returns the new revision number of a renumbered revision, OR the number of the first
+// previous still included revision, should the revision in question have been dropped.
+// Returns -1 if no such revision exists.
+int get_new_revision_number(revision *revisions, int num) {
+	int i = num;
+	while (i > 0) {
+		if (revisions[i].number > 0) {
+			return revisions[i].number;
+		}
+		--i;
+	}
+	return -1;
+}
+
+// Returns 1 if the node is a fake, otherwise 0.
+int is_node_fake(node *n, revision *revisions) {
+	int i;
+	for (i = 0; i < revisions[n->revision].fake_size; ++i) {
+		if (revisions[n->revision].fakes[i] == n) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
 /*******************************************************************************
  *
  * Include/exclude-related functions
@@ -496,7 +521,7 @@ int has_redefine_collisions(repotree *root, repotree *current, char *redefined_r
 	return 0;
 }
 
-void restore_delete_node_if_needed(repotree *rt, node *n) {
+void restore_delete_node_if_needed(repotree *rt, revision *revisions, node *n) {
 	repotree *target = get_subtree(rt, n->path, 1);
 	int i = target->map_len - 1;
 	int j;
@@ -512,11 +537,13 @@ void restore_delete_node_if_needed(repotree *rt, node *n) {
 			return;
 		}
 		// If it's a fake node we need to check whether the dependency responsible for the fake is wanted...
-		if (target->map[i]->action == ADD && target->map[i]->dep_len > 0 && target->map[i]->deps[0]->wanted && target->map[i]->deps[0]->copyfrom) {
+		if (target->map[i]->action == ADD && target->map[i]->dep_len > 0 && target->map[i]->deps[0]->wanted
+				&& target->map[i]->deps[0]->copyfrom && is_node_fake(target->map[i], revisions)) {
 			temp = add_slash_to(target->map[i]->deps[0]->path);
 			if (starts_with(n->path, temp)) {
 				free(temp);
 				temp = get_dir_after_copyfrom(target->map[i]->deps[0]->copyfrom, n->path, target->map[i]->deps[0]->path);
+				// ...and finally we want to know if the file in question was present and wanted
 				for (j = 1; j < target->map[i]->dep_len; ++j) {
 					if (target->map[i]->deps[j]->wanted && strcmp(target->map[i]->deps[j]->path, temp) == 0) {
 						free(temp);
@@ -818,8 +845,8 @@ int get_mergerow_size(mergedata *data, revision *revisions, char *redefined_root
 	int to, from;
 	int size = 0;
 	char *temp;
-	to = revisions[data->to[row]].number;
-	from = revisions[data->from[row]].number;
+	to = get_new_revision_number(revisions, data->to[row]);
+	from = get_new_revision_number(revisions, data->from[row]);
 	if (to == from) {
 		size += num_len(to) + 1; // ":XXX"
 	}
@@ -851,8 +878,8 @@ void write_mergeinfo(FILE *outfile, mergedata *data, revision *revisions, char *
 	fprintf(outfile, "Prop-content-length: %d\nContent-length: %d\n\nK 13\nsvn:mergeinfo\nV %d\n",
 					(int)pcon_len - diff, (int)con_len - diff, v_size);
 	for (i = 0; i < data->size; ++i) {
-		to = revisions[data->to[i]].number;
-		from = revisions[data->from[i]].number;
+		to = get_new_revision_number(revisions, data->to[i]);
+		from = get_new_revision_number(revisions, data->from[i]);
 		if (redefined_root) {
 			temp = reduce_path(redefined_root, data->path[i]);
 		}
@@ -1433,7 +1460,7 @@ int main(int argc, char **argv) {
 	for (i = 0; i < rev_len; ++i) {
 		for (j = 0; j < revisions[i].size; ++j) {
 			if (revisions[i].nodes[j].action == DELETE && !revisions[i].nodes[j].wanted) {
-				restore_delete_node_if_needed(&rt, &revisions[i].nodes[j]);
+				restore_delete_node_if_needed(&rt, revisions, &revisions[i].nodes[j]);
 			}
 		}
 	}
