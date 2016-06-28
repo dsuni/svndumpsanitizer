@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 2.0.1, released 19 Feb 2016
+	svndumpsanitizer version 2.0.2, released 28 Jun 2016
 
 	Copyright 2011,2012,2013,2014,2015,2016 Daniel Suni
 
@@ -33,7 +33,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "2.0.1"
+#define SDS_VERSION "2.0.2"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -786,12 +786,19 @@ mergedata* add_mergedata(char *minfo, int *size) {
 			exit_with_error("realloc failed", 2);
 		}
 		j = i + len - 1;
+		// Parse through possible crap at the end that isn't digits replacing it with NULL.
+		while (minfo[j] < 48 || minfo[j] > 57) {
+			minfo[j] = '\0';
+			--j;
+		}
+		// Parse through the last number.
 		while (minfo[j] >= 48 && minfo[j] <= 57) {
 			--j;
 		}
 		md->to[md->size] = atoi(&minfo[j + 1]);
+		// Parse until the first number, replacing all non-digits with NULL.
 		while (minfo[j] != ':') {
-			if (minfo[j] == ',' || minfo[j] == '-') {
+			if (minfo[j] < 48 || minfo[j] > 57) {
 				minfo[j] = '\0';
 			}
 			--j;
