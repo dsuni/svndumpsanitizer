@@ -1,0 +1,126 @@
+SVN-fs-dump-format-version: 2
+
+UUID: 4146e0a4-677d-4b12-bf6f-8603c949b2d6
+
+Revision-number: 0
+Prop-content-length: 56
+Content-length: 56
+
+K 8
+svn:date
+V 27
+2017-05-31T12:46:16.229993Z
+PROPS-END
+
+Revision-number: 1
+Prop-content-length: 113
+Content-length: 113
+
+K 10
+svn:author
+V 6
+daniel
+K 8
+svn:date
+V 27
+2017-05-31T12:49:39.741150Z
+K 7
+svn:log
+V 12
+First commit
+PROPS-END
+
+Node-path: test.txt
+Node-kind: file
+Node-action: add
+Text-content-md5: d8e8fca2dc0f896fd7cb4cb0031ba249
+Text-content-sha1: 4e1243bd22c66e76c2ba9eddc1f91394e57f9f83
+Prop-content-length: 10
+Text-content-length: 5
+Content-length: 15
+
+PROPS-END
+test
+
+
+Node-path: trunk
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: trunk/test2.txt
+Node-kind: file
+Node-action: add
+Text-content-md5: 126a8a51b9d1bbd07fddc65819a542c3
+Text-content-sha1: 9054fbe0b622c638224d50d20824d2ff6782e308
+Prop-content-length: 10
+Text-content-length: 6
+Content-length: 16
+
+PROPS-END
+test2
+
+
+Revision-number: 2
+Prop-content-length: 111
+Content-length: 111
+
+K 10
+svn:author
+V 6
+daniel
+K 8
+svn:date
+V 27
+2017-05-31T12:52:11.458260Z
+K 7
+svn:log
+V 10
+Added tags
+PROPS-END
+
+Node-path: tags
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 3
+Prop-content-length: 113
+Content-length: 113
+
+K 10
+svn:author
+V 6
+daniel
+K 8
+svn:date
+V 27
+2017-05-31T12:52:30.858362Z
+K 7
+svn:log
+V 12
+tag release2
+PROPS-END
+
+Node-path: tags/release2
+Node-kind: dir
+Node-action: add
+Node-copyfrom-rev: 1
+Node-copyfrom-path: 
+
+
+Node-path: tags/release2/tags
+Node-kind: dir
+Node-action: add
+Node-copyfrom-rev: 2
+Node-copyfrom-path: tags
+
+

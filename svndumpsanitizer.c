@@ -1,7 +1,7 @@
 /*
-	svndumpsanitizer version 2.0.2, released 28 Jun 2016
+	svndumpsanitizer version 2.0.3, released 1 Jun 2016
 
-	Copyright 2011,2012,2013,2014,2015,2016 Daniel Suni
+	Copyright 2011,2012,2013,2014,2015,2016,2017 Daniel Suni
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "2.0.2"
+#define SDS_VERSION "2.0.3"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -471,6 +471,10 @@ repotree* get_subtree(repotree *rt, char *path, int fail_if_not_found) {
 		}
 		++i;
 	}
+	// If it's the root dir, return entire tree.
+	if (strlen(path) == 0) {
+		return rt;
+	}
 	if (fail_if_not_found) {
 		fprintf(stderr, "Could not find requested subtree: %s\n", path);
 		exit_with_error("Internal logic error.", 3);
@@ -605,6 +609,11 @@ void add_file_dep_to_node(repotree *rt, node *n) {
 		return;
 	}
 	target = get_subtree(rt, n->copyfrom, 1);
+	// If we have the special case of the root directory being copied, we don't need any
+	// additional dependencies since everything implicitly depends on the root dir anyway.
+	if (target == rt) {
+		return;
+	}
 	temp_n = get_node_at_revision(target->map, n->copyfrom_rev, target->map_len);
 	if (temp_n && temp_n->action != DELETE) {
 		add_dependency(temp_n, n);
