@@ -2,7 +2,7 @@
 
 ## Home page
 
-This is a short version of the documentation available on the [project home page.](http://miria.homelinuxserver.org/svndumpsanitizer) For the full version please go there.
+This is a short version of the documentation available on the [project home page.](https://miria.homelinuxserver.org/svndumpsanitizer) For the full version please go there.
 
 ## Background
 
@@ -53,7 +53,7 @@ It has been pointed out to me that svndumpsanitizer creates a lot of unnecessary
 
 ## Bug reports
 
-Bugs can be reported to daniel[dot]suni[at]gmail[dot]com. If the problem is with a specific dumpfile, please include the offending dumpfile. If the contents of the repository is too sensitive/secret/embarrassing/too
+Bugs can be reported to daniel[dot]suni[at]protonmail[dot]com. If the problem is with a specific dumpfile, please include the offending dumpfile. If the contents of the repository is too sensitive/secret/embarrassing/too
 freakin' huge to post, then please try to recreate the problem with a simple non-sensitive dumpfile.
 
 You can also try creating a non-sensitive dumpfile by using dumpstrip, a tool that strips out all the data, leaving only the metadata (which is usually the interesting part from a debugging perspective). Dumpstrip is used like this:
