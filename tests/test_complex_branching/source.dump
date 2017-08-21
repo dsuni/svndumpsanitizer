@@ -1,0 +1,431 @@
+SVN-fs-dump-format-version: 2
+
+UUID: 025617e6-75f3-3043-9c1d-674af0a1a16d
+
+Revision-number: 0
+Prop-content-length: 56
+Content-length: 56
+
+K 8
+svn:date
+V 27
+2017-08-17T13:36:56.351373Z
+PROPS-END
+
+Revision-number: 1
+Prop-content-length: 121
+Content-length: 121
+
+K 10
+svn:author
+V 6
+baresj
+K 8
+svn:date
+V 27
+2017-08-17T13:37:44.111148Z
+K 7
+svn:log
+V 20
+add branches/branch1
+PROPS-END
+
+Node-path: branches
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: branches/branch1
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 2
+Prop-content-length: 129
+Content-length: 129
+
+K 10
+svn:author
+V 6
+baresj
+K 8
+svn:date
+V 27
+2017-08-17T13:38:19.408678Z
+K 7
+svn:log
+V 28
+add branches/branch1/foo.txt
+PROPS-END
+
+Node-path: branches/branch1/foo.txt
+Node-kind: file
+Node-action: add
+Text-content-md5: acbd18db4cc2f85cedef654fccc4a4d8
+Text-content-sha1: 0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33
+Prop-content-length: 10
+Text-content-length: 3
+Content-length: 13
+
+PROPS-END
+foo
+
+Revision-number: 3
+Prop-content-length: 148
+Content-length: 148
+
+K 10
+svn:author
+V 6
+baresj
+K 8
+svn:date
+V 27
+2017-08-17T13:38:50.365773Z
+K 7
+svn:log
+V 47
+add branches/branch2 copy from branches/branch1
+PROPS-END
+
+Node-path: branches/branch2
+Node-kind: dir
+Node-action: add
+Node-copyfrom-rev: 2
+Node-copyfrom-path: branches/branch1
+
+
+Revision-number: 4
+Prop-content-length: 148
+Content-length: 148
+
+K 10
+svn:author
+V 6
+baresj
+K 8
+svn:date
+V 27
+2017-08-17T13:39:17.371473Z
+K 7
+svn:log
+V 47
+add branches/branch3 copy from branches/branch1
+PROPS-END
+
+Node-path: branches/branch3
+Node-kind: dir
+Node-action: add
+Node-copyfrom-rev: 3
+Node-copyfrom-path: branches/branch1
+
+
+Revision-number: 5
+Prop-content-length: 148
+Content-length: 148
+
+K 10
+svn:author
+V 6
+baresj
+K 8
+svn:date
+V 27
+2017-08-17T13:39:49.938730Z
+K 7
+svn:log
+V 47
+add branches/branch4 copy from branches/branch3
+PROPS-END
+
+Node-path: branches/branch4
+Node-kind: dir
+Node-action: add
+Node-copyfrom-rev: 4
+Node-copyfrom-path: branches/branch3
+
+
+Revision-number: 6
+Prop-content-length: 132
+Content-length: 132
+
+K 10
+svn:author
+V 6
+baresj
+K 8
+svn:date
+V 27
+2017-08-17T13:40:15.093245Z
+K 7
+svn:log
+V 31
+delete branches/branch4/foo.txt
+PROPS-END
+
+Node-path: branches/branch4/foo.txt
+Node-action: delete
+
+
+Revision-number: 7
+Prop-content-length: 148
+Content-length: 148
+
+K 10
+svn:author
+V 6
+baresj
+K 8
+svn:date
+V 27
+2017-08-17T13:40:45.852321Z
+K 7
+svn:log
+V 47
+add branches/branch5 copy from branches/branch2
+PROPS-END
+
+Node-path: branches/branch5
+Node-kind: dir
+Node-action: add
+Node-copyfrom-rev: 6
+Node-copyfrom-path: branches/branch2
+
+
+Revision-number: 8
+Prop-content-length: 132
+Content-length: 132
+
+K 10
+svn:author
+V 6
+baresj
+K 8
+svn:date
+V 27
+2017-08-17T13:41:26.199355Z
+K 7
+svn:log
+V 31
+delete branches/branch5/foo.txt
+PROPS-END
+
+Node-path: branches/branch5/foo.txt
+Node-action: delete
+
+
+Revision-number: 9
+Prop-content-length: 121
+Content-length: 121
+
+K 10
+svn:author
+V 6
+baresj
+K 8
+svn:date
+V 27
+2017-08-17T13:41:56.786413Z
+K 7
+svn:log
+V 20
+add branches/branch6
+PROPS-END
+
+Node-path: branches/branch6
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 10
+Prop-content-length: 124
+Content-length: 124
+
+K 10
+svn:author
+V 6
+baresj
+K 8
+svn:date
+V 27
+2017-08-17T13:42:22.372972Z
+K 7
+svn:log
+V 23
+delete branches/branch6
+PROPS-END
+
+Node-path: branches/branch6
+Node-action: delete
+
+
+Revision-number: 11
+Prop-content-length: 148
+Content-length: 148
+
+K 10
+svn:author
+V 6
+baresj
+K 8
+svn:date
+V 27
+2017-08-17T13:43:27.067440Z
+K 7
+svn:log
+V 47
+add branches/branch6 copy from branches/branch5
+PROPS-END
+
+Node-path: branches/branch6
+Node-kind: dir
+Node-action: add
+Node-copyfrom-rev: 10
+Node-copyfrom-path: branches/branch5
+
+
+Revision-number: 12
+Prop-content-length: 148
+Content-length: 148
+
+K 10
+svn:author
+V 6
+baresj
+K 8
+svn:date
+V 27
+2017-08-17T13:43:58.516585Z
+K 7
+svn:log
+V 47
+add branches/branch7 copy from branches/branch6
+PROPS-END
+
+Node-path: branches/branch7
+Node-kind: dir
+Node-action: add
+Node-copyfrom-rev: 11
+Node-copyfrom-path: branches/branch6
+
+
+Revision-number: 13
+Prop-content-length: 129
+Content-length: 129
+
+K 10
+svn:author
+V 6
+baresj
+K 8
+svn:date
+V 27
+2017-08-17T13:44:34.732206Z
+K 7
+svn:log
+V 28
+add branches/branch7/foo.txt
+PROPS-END
+
+Node-path: branches/branch7/foo.txt
+Node-kind: file
+Node-action: add
+Text-content-md5: acbd18db4cc2f85cedef654fccc4a4d8
+Text-content-sha1: 0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33
+Prop-content-length: 10
+Text-content-length: 3
+Content-length: 13
+
+PROPS-END
+foo
+
+Revision-number: 14
+Prop-content-length: 148
+Content-length: 148
+
+K 10
+svn:author
+V 6
+baresj
+K 8
+svn:date
+V 27
+2017-08-17T13:45:10.470780Z
+K 7
+svn:log
+V 47
+add branches/branch8 copy from branches/branch7
+PROPS-END
+
+Node-path: branches/branch8
+Node-kind: dir
+Node-action: add
+Node-copyfrom-rev: 13
+Node-copyfrom-path: branches/branch7
+
+
+Revision-number: 15
+Prop-content-length: 143
+Content-length: 143
+
+K 10
+svn:author
+V 6
+baresj
+K 8
+svn:date
+V 27
+2017-08-17T13:45:47.699502Z
+K 7
+svn:log
+V 42
+rename branches/branch7/foo.txt to bar.txt
+PROPS-END
+
+Node-path: branches/branch7/bar.txt
+Node-kind: file
+Node-action: add
+Node-copyfrom-rev: 14
+Node-copyfrom-path: branches/branch7/foo.txt
+Text-copy-source-md5: acbd18db4cc2f85cedef654fccc4a4d8
+Text-copy-source-sha1: 0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33
+
+
+Node-path: branches/branch7/foo.txt
+Node-action: delete
+
+
+Revision-number: 16
+Prop-content-length: 132
+Content-length: 132
+
+K 10
+svn:author
+V 6
+baresj
+K 8
+svn:date
+V 27
+2017-08-17T13:46:22.817014Z
+K 7
+svn:log
+V 31
+delete branches/branch8/foo.txt
+PROPS-END
+
+Node-path: branches/branch8/foo.txt
+Node-action: delete
+
+

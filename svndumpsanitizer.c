@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 2.0.3, released 1 Jun 2016
+	svndumpsanitizer version 2.0.4, released 21 Aug 2017
 
 	Copyright 2011,2012,2013,2014,2015,2016,2017 Daniel Suni
 
@@ -33,7 +33,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "2.0.3"
+#define SDS_VERSION "2.0.4"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -496,7 +496,7 @@ int has_redefine_collisions(repotree *root, repotree *current, char *redefined_r
 	repotree *subtree = NULL;
 	if (current->path) {
 		temp = reduce_path(redefined_root, current->path);
-		if (strcmp(current->path, temp) != 0) {
+		if (strlen(temp) > 0 && strcmp(current->path, temp) != 0) {
 			subtree = get_subtree(root, temp, 0);
 		}
 		free(temp);
@@ -525,40 +525,61 @@ int has_redefine_collisions(repotree *root, repotree *current, char *redefined_r
 	return 0;
 }
 
-void restore_delete_node_if_needed(repotree *rt, revision *revisions, node *n) {
+// Returns 1 if file (or dir) is still present after applying sanitazion rules, otherwise 0.
+// no_search -> correct pointer is already given, skip searching for it.
+int is_file_present(repotree *rt, revision *revisions, node *n, int no_search) {
 	repotree *target = get_subtree(rt, n->path, 1);
 	int i = target->map_len - 1;
 	int j;
 	char *temp;
 	// Find the right pointer...
-	while (i >= 0 && target->map[i] != n) {
-		--i;
+	if (!no_search) {
+		while (i >= 0 && target->map[i] != n) {
+			--i;
+		}
+		--i; // And back up to the previous one...
 	}
-	--i; // And back up to the previous one...
 	while (i >= 0 && target->map[i]->action != DELETE) {
 		if (target->map[i]->wanted) {
-			n->wanted = 2;
-			return;
+			return 1;
 		}
-		// If it's a fake node we need to check whether the dependency responsible for the fake is wanted...
-		if (target->map[i]->action == ADD && target->map[i]->dep_len > 0 && target->map[i]->deps[0]->wanted
-				&& target->map[i]->deps[0]->copyfrom && is_node_fake(target->map[i], revisions)) {
-			temp = add_slash_to(target->map[i]->deps[0]->path);
-			if (starts_with(n->path, temp)) {
-				free(temp);
-				temp = get_dir_after_copyfrom(target->map[i]->deps[0]->copyfrom, n->path, target->map[i]->deps[0]->path);
-				// ...and finally we want to know if the file in question was present and wanted
-				for (j = 1; j < target->map[i]->dep_len; ++j) {
-					if (target->map[i]->deps[j]->wanted && strcmp(target->map[i]->deps[j]->path, temp) == 0) {
-						free(temp);
-						n->wanted = 3;
-						return;
+		// If it's a fake add node we need to dig deeper...
+		if (target->map[i]->action == ADD && is_node_fake(target->map[i], revisions)) {
+			// Is the dependency responsible for the fake wanted?
+			if (target->map[i]->dep_len > 0 && target->map[i]->deps[0]->wanted && target->map[i]->deps[0]->copyfrom) {
+				temp = add_slash_to(target->map[i]->deps[0]->path);
+				if (starts_with(n->path, temp)) {
+					free(temp);
+					// Get the origin of the fake node. E.g. If the file trunk/project2/foo.txt has come to be
+					// by copying trunk/project1 to trunk/project2, the origin would be trunk/project1/foo.txt.
+					temp = get_dir_after_copyfrom(target->map[i]->deps[0]->copyfrom, n->path, target->map[i]->deps[0]->path);
+					// Find the correct dependency
+					for (j = 1; j < target->map[i]->dep_len; ++j) {
+						if (strcmp(target->map[i]->deps[j]->path, temp) == 0) {
+							// If it's wanted, we're done
+							if (target->map[i]->deps[j]->wanted) {
+								free(temp);
+								return 1;
+							}
+							// If it's another fake add node, we need another go.
+							else if (target->map[i]->deps[j]->action == ADD && is_node_fake(target->map[i]->deps[j], revisions)) {
+								free(temp);
+								return is_file_present(rt, revisions, target->map[i]->deps[j], 1);
+							}
+						}
 					}
 				}
+				free(temp);
 			}
-			free(temp);
 		}
 		--i;
+	}
+	return 0;
+}
+
+void restore_delete_node_if_needed(repotree *rt, revision *revisions, node *n) {
+	if (is_file_present(rt, revisions, n, 0)) {
+		n->wanted = 2;
 	}
 }
 
