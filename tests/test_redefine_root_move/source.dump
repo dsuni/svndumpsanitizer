@@ -1,0 +1,257 @@
+SVN-fs-dump-format-version: 2
+
+UUID: 496b2440-ecb8-4940-b495-ae5874e104ef
+
+Revision-number: 0
+Prop-content-length: 56
+Content-length: 56
+
+K 8
+svn:date
+V 27
+2017-10-22T11:18:43.996089Z
+PROPS-END
+
+Revision-number: 1
+Prop-content-length: 125
+Content-length: 125
+
+K 10
+svn:author
+V 9
+christian
+K 8
+svn:date
+V 27
+2017-10-22T11:20:11.886637Z
+K 7
+svn:log
+V 21
+folder for customer 1
+PROPS-END
+
+Node-path: customer1
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 2
+Prop-content-length: 125
+Content-length: 125
+
+K 10
+svn:author
+V 9
+christian
+K 8
+svn:date
+V 27
+2017-10-22T11:20:33.636341Z
+K 7
+svn:log
+V 21
+folder for customer 2
+PROPS-END
+
+Node-path: customer2
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 3
+Prop-content-length: 124
+Content-length: 124
+
+K 10
+svn:author
+V 9
+christian
+K 8
+svn:date
+V 27
+2017-10-22T11:20:58.488800Z
+K 7
+svn:log
+V 20
+folder for project 1
+PROPS-END
+
+Node-path: customer1/project1
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 4
+Prop-content-length: 123
+Content-length: 123
+
+K 10
+svn:author
+V 9
+christian
+K 8
+svn:date
+V 27
+2017-10-22T11:24:25.327070Z
+K 7
+svn:log
+V 19
+trunk for project 1
+PROPS-END
+
+Node-path: customer1/project1/trunk
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 5
+Prop-content-length: 122
+Content-length: 122
+
+K 10
+svn:author
+V 9
+christian
+K 8
+svn:date
+V 27
+2017-10-22T11:24:45.827604Z
+K 7
+svn:log
+V 18
+tags for project 1
+PROPS-END
+
+Node-path: customer1/project1/tags
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 6
+Prop-content-length: 126
+Content-length: 126
+
+K 10
+svn:author
+V 9
+christian
+K 8
+svn:date
+V 27
+2017-10-22T11:25:18.713327Z
+K 7
+svn:log
+V 22
+branches for project 1
+PROPS-END
+
+Node-path: customer1/project1/branches
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 7
+Prop-content-length: 128
+Content-length: 128
+
+K 10
+svn:author
+V 9
+christian
+K 8
+svn:date
+V 27
+2017-10-22T11:26:54.423868Z
+K 7
+svn:log
+V 24
+ReadMe.txt for procect 1
+PROPS-END
+
+Node-path: customer1/project1/trunk/ReadMe.txt
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 47
+Text-content-md5: b3b2af5932b2315b5231de440f119adc
+Text-content-sha1: 972c7db08d4bb0f097f3fafe2a889adfccb2e24c
+Content-length: 57
+
+PROPS-END
+some text for project one in the inital release
+
+Revision-number: 8
+Prop-content-length: 140
+Content-length: 140
+
+K 10
+svn:author
+V 9
+christian
+K 8
+svn:date
+V 27
+2017-10-22T11:30:18.347041Z
+K 7
+svn:log
+V 36
+prapare to use one repo per customer
+PROPS-END
+
+Node-path: customer1/project1
+Node-action: delete
+
+
+Node-path: project1
+Node-kind: dir
+Node-action: add
+Node-copyfrom-rev: 7
+Node-copyfrom-path: customer1/project1
+
+
+Revision-number: 9
+Prop-content-length: 140
+Content-length: 140
+
+K 10
+svn:author
+V 9
+christian
+K 8
+svn:date
+V 27
+2017-10-22T11:30:36.684635Z
+K 7
+svn:log
+V 36
+prapare to use one repo per customer
+PROPS-END
+
+Node-path: customer1
+Node-action: delete
+
+

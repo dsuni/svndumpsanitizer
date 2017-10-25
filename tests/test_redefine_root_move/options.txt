@@ -1,0 +1,1 @@
+-n project1/trunk project1/tags project1/branches -d -r project1

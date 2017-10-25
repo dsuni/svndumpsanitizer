@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 2.0.4, released 21 Aug 2017
+	svndumpsanitizer version 2.0.5, released 25 Oct 2017
 
 	Copyright 2011,2012,2013,2014,2015,2016,2017 Daniel Suni
 
@@ -33,7 +33,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "2.0.4"
+#define SDS_VERSION "2.0.5"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -1527,12 +1527,20 @@ int main(int argc, char **argv) {
 
 	// Remove any directory entries that should no longer exist with the redefined root
 	if (redefined_root) {
-		// First check whether the redefining even has a chance to succeed. If we have a redefined root of
-		// "trunk/foo", and then try to do a copyfrom operation from "trunk", we're pretty much doomed...
+		// First check whether the redefining even has a chance to succeed.
 		for (i = 0; i < rev_len; ++i) {
 			for (j = 0; j < revisions[i].size; ++j) {
 				if (revisions[i].nodes[j].copyfrom && revisions[i].nodes[j].wanted) {
+					// If we're trying to copy the (new) root directory itself from somewhere, it won't work.
+					if (strcmp(revisions[i].nodes[j].path, redefined_root) == 0) {
+						fprintf(stderr, "WARNING: Detected move operation of the redefined root directory.\n         Redefine operation will not be performed.\n");
+						redefined_root = NULL;
+						goto write_out;
+					}
+					// If we have a redefined root of "trunk/foo", and then try to do a copyfrom
+					// operation from "trunk", we're pretty much doomed...
 					temp_str = reduce_path(redefined_root, revisions[i].nodes[j].copyfrom);
+					printf("Test: %s %s %s\n", temp_str, revisions[i].nodes[j].path, redefined_root);
 					if (strcmp(temp_str, "") == 0 && strcmp(redefined_root, revisions[i].nodes[j].copyfrom) != 0) {
 						fprintf(stderr, "WARNING: Critical files detected upstream of redefined root.\n         Redefine operation will not be performed.\n");
 						redefined_root = NULL;
