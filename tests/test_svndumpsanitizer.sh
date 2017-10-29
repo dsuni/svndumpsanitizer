@@ -26,7 +26,7 @@ fail=0
 pass=0
 messages=""
 pushd `dirname $0`
-for subdir in `ls -l | grep ^d | sed 's/.*[ \t]//'` ; do
+for subdir in `ls -l | grep ^d | sed 's/.* //g'` ; do
 	pushd $subdir
 	if [ -e temp.dump ] ; then
 		rm -f temp.dump

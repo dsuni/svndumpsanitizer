@@ -102,7 +102,9 @@ void show_help_and_exit() {
 	printf("OPTIONS\n");
 	printf("\t-n, --include [PATHS]\n");
 	printf("\t\tList of repository paths to include.\n\n");
-	printf("\t-e, --exclude [PATHS]\n");
+	printf("\t-f, --include-paths FILENAME\n");
+	printf("\t\tA file with each line containing a filter path\n");
+	printf("\t-e, --exclude [PATHS]\n\n");
 	printf("\t\tList of repository paths to exclude.\n\n");
 	printf("\t\tYou must specify at least one path to include OR at least one path to exclude\n");
 	printf("\t\tYou may not specify includes and excludes at the same time.\n\n");
@@ -112,6 +114,8 @@ void show_help_and_exit() {
 	printf("\t\thyphen. In order to not have this hyphen misinterpreted as a command, it must be\n");
 	printf("\t\tescaped using a slash. E.g. \"-n /--foobar branches/baz\". Please notice that only\n");
 	printf("\t\ta leading hyphen should be escaped, and only for the repository root.\n\n");
+	printf("\t-x, --exclude-paths FILENAME\n");
+	printf("\t\tA file with each line containing a filter path\n\n");
 	printf("\t-d, --drop-empty\n");
 	printf("\t\tAny revision that after sanitizing, contains no actions will be dropped altogether.\n");
 	printf("\t\tThe remaining revisions will be renumbered. You will lose the commit messages for\n");
@@ -943,7 +947,7 @@ void write_mergeinfo(FILE *outfile, mergedata *data, revision *revisions, char *
 
 int main(int argc, char **argv) {
 	// Misc temporary variables
- 	int i, j, k, ch, want_by_default, new_number, empty, temp_int, is_dir, should_do, maxp_len;
+	int i, j, k, ch, want_by_default, new_number, empty, temp_int, is_dir, should_do, maxp_len;
 	off_t offset, con_len, pcon_len;
 	time_t rawtime;
 	struct tm *ptm;
@@ -953,10 +957,16 @@ int main(int argc, char **argv) {
 	int to_file = 1;
 	int query = 0;
 	int add_delete = 0;
+	char * line = NULL;
+	size_t len = 0;
+	ssize_t read;
+
 
 	// Variables to help analyze user input 
 	int in = 0;
 	int out = 0;
+	int incl_paths = 0;
+	int ex_paths = 0;
 	int incl = 0;
 	int excl = 0;
 	int drop = 0;
@@ -968,6 +978,7 @@ int main(int argc, char **argv) {
 	FILE *infile = NULL;
 	FILE *outfile = NULL;
 	FILE *messages = stdout;
+	FILE *paths = NULL;
 	char **include = NULL; // Holds the paths the user wants to keep
 	char **exclude = NULL; // Holds the paths the user wants to discard
 	char **exc_slash = NULL;
@@ -976,6 +987,7 @@ int main(int argc, char **argv) {
 	char *redefined_root = NULL;
 	char *why_file = NULL;
 	node **redef_rollback = NULL;
+	int freepaths = 0;
 
 	// Variables to hold the size of 2D pseudoarrays
 	int inc_len = 0;
@@ -1051,7 +1063,9 @@ int main(int argc, char **argv) {
 			redef = (!strcmp(argv[i], "--redefine-root") || !strcmp(argv[i], "-r"));
 			del = (!strcmp(argv[i], "--add-delete") || !strcmp(argv[i], "-a"));
 			why = (!strcmp(argv[i], "--query") || !strcmp(argv[i], "-q"));
-			if (!(in || out || incl || excl || drop || redef || del || why)) {
+			incl_paths = (!strcmp(argv[i], "--include-paths") || !strcmp(argv[i], "-f"));
+			ex_paths = (!strcmp(argv[i], "--exclude-paths") || !strcmp(argv[i], "-x"));
+			if (!(in || out || incl || excl || drop || redef || del || why || incl_paths || ex_paths)) {
 				exit_with_error(strcat(argv[i], " is not a valid parameter. Use -h for help."), 1);
 			}
 			else if (drop) {
@@ -1090,6 +1104,26 @@ int main(int argc, char **argv) {
 			}
 			++inc_len;			
 		}
+		else if (incl_paths) {
+			paths = fopen(argv[i], "r+t");
+			if (paths == NULL) {
+				exit_with_error(strcat(argv[i], " cannot open include paths file") , 3);
+			}
+			freepaths = 1;
+			while ((read = getline(&line, &len, paths)) != -1) {
+				if ((include = (char**)realloc(include, (inc_len + 1) * sizeof(char*))) == NULL) {
+					exit_with_error("realloc failed", 2);
+				}
+
+				include[inc_len] = (char*)malloc(read);
+				strcpy(include[inc_len], line);
+				++inc_len;	
+			}
+			fclose(paths);
+			if (line) {
+				free(line);
+			}
+		}
 		else if (excl) {
 			if ((exclude = (char**)realloc(exclude, (exc_len + 1) * sizeof(char*))) == NULL) {
 				exit_with_error("realloc failed", 2);
@@ -1101,6 +1135,26 @@ int main(int argc, char **argv) {
 				exclude[exc_len] = argv[i];
 			}
 			++exc_len;
+		}
+		else if (ex_paths) {
+			paths = fopen(argv[i], "r+t");
+			if (paths == NULL) {
+				exit_with_error(strcat(argv[i], " cannot open exclude paths file") , 3);
+			}
+			freepaths = 1;
+			while ((read = getline(&line, &len, paths)) != -1) {
+				if ((exclude = (char**)realloc(exclude, (exc_len + 1) * sizeof(char*))) == NULL) {
+					exit_with_error("realloc failed", 2);
+				}
+
+				exclude[exc_len] = (char*)malloc(read);
+				strcpy(exclude[exc_len], line);
+				++exc_len;	
+			}
+			fclose(paths);
+			if (line) {
+				free(line);
+			}
 		}
 		else if (redef && redefined_root == NULL) {
 			redefined_root = argv[i];
@@ -1804,7 +1858,19 @@ int main(int argc, char **argv) {
 	
 	fprintf(messages, "\nAll done.\n");
 	// Clean everything up
- cleanup:
+	if (freepaths) {
+		if (include) {
+			for (i = 0; i < inc_len; ++i) {
+				free(include[i]);
+			}
+		}
+		if (exclude) {
+			for (i = 0; i < exc_len; ++i) {
+				free(exclude[i]);
+			}
+		}
+	}
+	cleanup:
 	fclose(infile);
 	if (to_file) {
 		fclose(outfile);
