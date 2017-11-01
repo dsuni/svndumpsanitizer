@@ -1121,7 +1121,7 @@ int main(int argc, char **argv) {
 				exit_with_error(strcat(argv[i], " cannot open include paths file") , 3);
 			}
 			freepaths = 1;
-			fprintf(messages, "Include paths:\n");
+			//fprintf(messages, "Include paths:\n");
 			while ((read = getline(&line, &len, paths)) != -1) {
 				if ((include = (char**)realloc(include, (inc_len + 1) * sizeof(char*))) == NULL) {
 					exit_with_error("realloc failed", 2);
@@ -1130,7 +1130,7 @@ int main(int argc, char **argv) {
 				include[inc_len] = str_malloc(read);
 				line = cleanup_path(line, read);
 				strcpy(include[inc_len], line);
-				fprintf(messages, "\t%s\n", include[inc_len]);
+				//fprintf(messages, "\t%s\n", include[inc_len]);
 				++inc_len;	
 			}
 			fclose(paths);
@@ -1156,7 +1156,7 @@ int main(int argc, char **argv) {
 				exit_with_error(strcat(argv[i], " cannot open exclude paths file") , 3);
 			}
 			freepaths = 1;
-			fprintf(messages, "Exclude paths:\n");
+			//fprintf(messages, "Exclude paths:\n");
 			while ((read = getline(&line, &len, paths)) != -1) {
 				if ((exclude = (char**)realloc(exclude, (exc_len + 1) * sizeof(char*))) == NULL) {
 					exit_with_error("realloc failed", 2);
@@ -1165,7 +1165,7 @@ int main(int argc, char **argv) {
 				exclude[exc_len] = str_malloc(read);
 				line = cleanup_path(line, read);
 				strcpy(exclude[exc_len], line);
-				fprintf(messages, "\t%s\n", exclude[exc_len]);
+				//fprintf(messages, "\t%s\n", exclude[exc_len]);
 				++exc_len;	
 			}
 			fclose(paths);
