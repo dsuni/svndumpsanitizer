@@ -1,7 +1,7 @@
 /*
-	svndumpsanitizer version 2.0.5, released 25 Oct 2017
+	svndumpsanitizer version 2.0.6, released 17 Apr 2018
 
-	Copyright 2011,2012,2013,2014,2015,2016,2017 Daniel Suni
+	Copyright 2011,2012,2013,2014,2015,2016,2017,2018 Daniel Suni
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "2.0.5"
+#define SDS_VERSION "2.0.6"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -533,10 +533,10 @@ int is_file_present(repotree *rt, revision *revisions, node *n, int no_search) {
 	int j;
 	char *temp;
 	// Find the right pointer...
+	while (i >= 0 && target->map[i] != n) {
+		--i;
+	}
 	if (!no_search) {
-		while (i >= 0 && target->map[i] != n) {
-			--i;
-		}
 		--i; // And back up to the previous one...
 	}
 	while (i >= 0 && target->map[i]->action != DELETE) {
