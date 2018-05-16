@@ -1,5 +1,5 @@
 /*
-	svndumpsanitizer version 2.0.6, released 17 Apr 2018
+	svndumpsanitizer version 2.0.7, released 16 May 2018
 
 	Copyright 2011,2012,2013,2014,2015,2016,2017,2018 Daniel Suni
 
@@ -33,7 +33,7 @@
 #include <string.h>
 #include <time.h>
 
-#define SDS_VERSION "2.0.6"
+#define SDS_VERSION "2.0.7"
 #define ADD 0
 #define CHANGE 1
 #define DELETE 2
@@ -1540,7 +1540,6 @@ int main(int argc, char **argv) {
 					// If we have a redefined root of "trunk/foo", and then try to do a copyfrom
 					// operation from "trunk", we're pretty much doomed...
 					temp_str = reduce_path(redefined_root, revisions[i].nodes[j].copyfrom);
-					printf("Test: %s %s %s\n", temp_str, revisions[i].nodes[j].path, redefined_root);
 					if (strcmp(temp_str, "") == 0 && strcmp(redefined_root, revisions[i].nodes[j].copyfrom) != 0) {
 						fprintf(stderr, "WARNING: Critical files detected upstream of redefined root.\n         Redefine operation will not be performed.\n");
 						redefined_root = NULL;
