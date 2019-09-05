@@ -953,6 +953,8 @@ int main(int argc, char **argv) {
 	int to_file = 1;
 	int query = 0;
 	int add_delete = 0;
+	int min_rev_range = -2;
+	int max_rev_range = ((1lu<<((sizeof(int)*8)-1))-1lu); // max int
 
 	// Variables to help analyze user input 
 	int in = 0;
@@ -963,6 +965,7 @@ int main(int argc, char **argv) {
 	int redef = 0;
 	int del = 0;
 	int why = 0;
+	int revr = 0;
 
 	// Variables related to files and paths
 	FILE *infile = NULL;
@@ -1051,7 +1054,8 @@ int main(int argc, char **argv) {
 			redef = (!strcmp(argv[i], "--redefine-root") || !strcmp(argv[i], "-r"));
 			del = (!strcmp(argv[i], "--add-delete") || !strcmp(argv[i], "-a"));
 			why = (!strcmp(argv[i], "--query") || !strcmp(argv[i], "-q"));
-			if (!(in || out || incl || excl || drop || redef || del || why)) {
+			revr = (!strcmp(argv[i], "--revisions"));
+			if (!(in || out || incl || excl || drop || redef || del || why || revr)) {
 				exit_with_error(strcat(argv[i], " is not a valid parameter. Use -h for help."), 1);
 			}
 			else if (drop) {
@@ -1075,6 +1079,31 @@ int main(int argc, char **argv) {
 			if (outfile == NULL) {
 				exit_with_error(strcat(argv[i], " can not be opened as outfile") , 3);
 			}
+		}
+		else if (revr && min_rev_range == -2) {
+			min_rev_range = -1;
+			char * revrange = strdup(argv[i]);
+			if (revrange == NULL) {
+				exit_with_error(strcat(argv[i], " can not copy revrange") , 3);
+			}
+
+			char * sep = NULL;
+			if (sep = strchr(revrange, ':')) {
+				*sep = 0;
+				if (strlen(revrange))
+					min_rev_range = atoi(revrange);
+
+				if (strlen(sep+1))
+					max_rev_range = atoi(sep+1);
+			} else {
+				if (strlen(revrange))
+					max_rev_range = atoi(revrange);
+			}
+
+			if (max_rev_range < min_rev_range) {
+				exit_with_error("Invalid revisions range" , 3);
+			}
+			free(revrange);
 		}
 		else if (incl) {
 			if ((include = (char**)realloc(include, (inc_len + 1) * sizeof(char*))) == NULL) {
@@ -1384,12 +1413,16 @@ int main(int argc, char **argv) {
 		}
 		for (i = rev_len - 1; i > 0; --i) {
 			for (j = 0; j < revisions[i].size; ++j) {
-				if (is_cluded(revisions[i].nodes[j].path, include, inc_slash, inc_len)) {
+				// keep all files that do match including path or outside the revision range
+				if (is_cluded(revisions[i].nodes[j].path, include, inc_slash, inc_len)
+				        || i < min_rev_range || i > max_rev_range) {
 					set_wanted(&revisions[i].nodes[j]);
 				}
 			}
 			for (j = 0; j < revisions[i].fake_size; ++j) {
-				if (is_cluded(revisions[i].fakes[j]->path, include, inc_slash, inc_len)) {
+				// keep all files that do match including path or outside the revision range
+				if (is_cluded(revisions[i].fakes[j]->path, include, inc_slash, inc_len)
+				        || i < min_rev_range || i > max_rev_range) {
 					set_wanted(revisions[i].fakes[j]);
 				}
 			}
@@ -1406,14 +1439,18 @@ int main(int argc, char **argv) {
 		parse_exclude_preparation(revisions, exclude, exc_slash, rev_len, exc_len);
 		for (i = rev_len - 1; i > 0; --i) {
 			for (j = 0; j < revisions[i].size; ++j) {
-				if (!is_cluded(revisions[i].nodes[j].path, exclude, exc_slash, exc_len)) {
+				// keep all files that do not match excluding path or outside the revision range
+				if (!is_cluded(revisions[i].nodes[j].path, exclude, exc_slash, exc_len)
+				        || i < min_rev_range || i > max_rev_range) {
 					set_wanted(&revisions[i].nodes[j]);
 				}
 			}
 		}
 		for (i = rev_len - 1; i > 0; --i) {
 			for (j = 0; j < revisions[i].fake_size; ++j) {
-				if (!is_cluded(revisions[i].fakes[j]->path, exclude, exc_slash, exc_len)) {
+				// keep all files that do not match excluding path or outside the revision range
+				if (!is_cluded(revisions[i].fakes[j]->path, exclude, exc_slash, exc_len)
+				        || i < min_rev_range || i > max_rev_range) {
 					set_wanted(revisions[i].fakes[j]);
 				}
 			}
