@@ -8,7 +8,7 @@ This is a short version of the documentation available on the [project home page
 
 This is the home page for my tool svndumpsanitizer. It's a small project born from my experiences with the official subversion tool "svndumpfilter". Svndumpfilter unfortunately does not work with every valid repository, and even though I can't vouch for my program either, I have certainly tried to make it that way. If it doesn't work with some valid repository, that is to be considered a bug. I know it can handle all the files I've thrown at it, that svndumpfilter couldn't.
 
-## Misc info
+## Building
 
 The program has been tested on Linux (i386 and x86_64 architectures) and should work out-of-the-box on any system using the GNU toolchain. It uses only standard libraries and should be easily portable, though. The only thing that might cause some snags is the 64 bit file API. (As of 1.0.2 it contains a modification by $ergi0 that should make it possible to
 build under Windows. I haven't tested that myself, though.)
@@ -26,6 +26,12 @@ A typical command would look something like this:
 ```sh
 $ ./svndumpsanitizer --infile huge_mess.dump --outfile repo1.dump --include trunk/repo1 tags/repo1 branches/my_really_important_stuff --drop-empty
 ```
+
+### Nix
+
+If you use [Nix flakes](https://nixos.wiki/wiki/Flakes), you can directly consume this repository as a flake.
+For example: to imperatively install to the current profile, one would run `nix flake install github:dsuni/svndumpsanitizer`.
+
 ## What svndumpsanitizer *doesn't* do
 
 To save yourself time and frustration by trying to use this tool for something it was never intended to do, please notice that it does not:
