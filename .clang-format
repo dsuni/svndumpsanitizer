@@ -1,0 +1,9 @@
+---
+BreakBeforeBraces: Custom
+BraceWrapping:
+  BeforeElse: true
+ColumnLimit: 0
+IndentWidth: 4
+PointerAlignment: Right
+TabWidth: 4
+UseTab: ForContinuationAndIndentation
