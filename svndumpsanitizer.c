@@ -20,9 +20,9 @@
 // WIN32 modification by $ergi0, squeek502 and dufreyne
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS
-#include <sys/types.h>
-#include <io.h>
 #include <fcntl.h>
+#include <io.h>
+#include <sys/types.h>
 #define fseeko _fseeki64
 #endif
 
@@ -160,16 +160,16 @@ void print_progress(FILE *out, char *message, int progress) {
 	fflush(out);
 }
 
-char* str_malloc(size_t sz) {
-	char* str;
-	if ((str = (char*)malloc(sz)) == NULL) {
+char *str_malloc(size_t sz) {
+	char *str;
+	if ((str = (char *)malloc(sz)) == NULL) {
 		exit_with_error("malloc failed", 2);
 	}
 	return str;
 }
 
-char* add_slash_to(char *str) {
-	char* new_str = str_malloc(strlen(str) + 2);
+char *add_slash_to(char *str) {
+	char *new_str = str_malloc(strlen(str) + 2);
 	strcpy(new_str, str);
 	strcat(new_str, "/");
 	return new_str;
@@ -188,7 +188,7 @@ int starts_with(char *a, char *b) {
 }
 
 // Tries to match the beginning of a path to a name. Returns 1 if successful, otherwise 0.
-// E.g. foo/bar/baz will match foo, or foo/bar but not foobar. 
+// E.g. foo/bar/baz will match foo, or foo/bar but not foobar.
 int matches_path_start(char *path, char *name) {
 	int i = 0;
 	while (name[i] != '\0') {
@@ -205,8 +205,8 @@ int matches_path_start(char *path, char *name) {
 
 // Reduces path as far as the redefined root allows. E.g. if foo/trunk is the redefined root
 // foo/bar/baz.txt will be reduced to bar/baz.txt and foo/trunk/quux.txt will become quux.txt
-char* reduce_path(char* redefined_root, char* path) {
-	char* str;
+char *reduce_path(char *redefined_root, char *path) {
+	char *str;
 	int i = 0;
 	int mark = -1;
 	str = str_malloc(strlen(path) + 1);
@@ -244,9 +244,9 @@ char* reduce_path(char* redefined_root, char* path) {
 // Returns the new file path after a copyfrom. E.g. New dir = branches/foo, old file is
 // trunk/project/bar.txt branches/foo is copied from trunk. The method should return the
 // location of the file after the copyfrom, i.e. branches/foo/project/bar.txt
-char* get_dir_after_copyfrom(char *new, char *old, char *copyfrom) {
-	char* temp_str = reduce_path(copyfrom, old);
-	char* path = str_malloc(strlen(new) + strlen(temp_str) + 2);
+char *get_dir_after_copyfrom(char *new, char *old, char *copyfrom) {
+	char *temp_str = reduce_path(copyfrom, old);
+	char *path = str_malloc(strlen(new) + strlen(temp_str) + 2);
 	strcpy(path, new);
 	strcat(path, "/");
 	strcat(path, temp_str);
@@ -265,9 +265,9 @@ void init_new_node(node *n) {
 	n[0].dep_len = 0;
 }
 
-node* get_new_node() {
+node *get_new_node() {
 	node *n;
-	if ((n = (node*)malloc(sizeof(node))) == NULL) {
+	if ((n = (node *)malloc(sizeof(node))) == NULL) {
 		exit_with_error("malloc failed", 2);
 	}
 	init_new_node(n);
@@ -405,9 +405,9 @@ void set_wanted(node *n) {
 }
 
 // Returns the node that is relevant to the revision in question, or NULL if no such node exists.
-node* get_node_at_revision(node **map, int rev, int map_len) {
+node *get_node_at_revision(node **map, int rev, int map_len) {
 	int i;
-	for (i = map_len - 1; i >=0; --i) {
+	for (i = map_len - 1; i >= 0; --i) {
 		if (map[i]->revision <= rev) {
 			return map[i];
 		}
@@ -416,9 +416,9 @@ node* get_node_at_revision(node **map, int rev, int map_len) {
 }
 
 // Returns the ADD node that is relevant to the revision in question, or NULL if no such node exists.
-node* get_add_node_at_revision(node **map, int rev, int map_len) {
+node *get_add_node_at_revision(node **map, int rev, int map_len) {
 	int i;
-	for (i = map_len - 1; i >=0; --i) {
+	for (i = map_len - 1; i >= 0; --i) {
 		if (map[i]->revision <= rev) {
 			if (map[i]->action == ADD) {
 				return map[i];
@@ -432,9 +432,9 @@ node* get_add_node_at_revision(node **map, int rev, int map_len) {
 }
 
 // Returns the node that is actually present at a certain revision when wanted status is considered.
-node* get_wanted_node_at_revision(node **map, int rev, int map_len) {
+node *get_wanted_node_at_revision(node **map, int rev, int map_len) {
 	int i;
-	for (i = map_len - 1; i >=0; --i) {
+	for (i = map_len - 1; i >= 0; --i) {
 		if (map[i]->revision <= rev && map[i]->wanted) {
 			if (map[i]->action == DELETE) {
 				return NULL;
@@ -445,7 +445,7 @@ node* get_wanted_node_at_revision(node **map, int rev, int map_len) {
 	return NULL;
 }
 
-node* get_node_at(node **map, int rev, int map_len, int wanted_only) {
+node *get_node_at(node **map, int rev, int map_len, int wanted_only) {
 	if (wanted_only) {
 		return get_wanted_node_at_revision(map, rev, map_len);
 	}
@@ -459,7 +459,7 @@ node* get_node_at(node **map, int rev, int map_len, int wanted_only) {
  ******************************************************************************/
 
 // Returns subtree where the root node matches the provided path.
-repotree* get_subtree(repotree *rt, char *path, int fail_if_not_found) {
+repotree *get_subtree(repotree *rt, char *path, int fail_if_not_found) {
 	int i = 0;
 	while (i < rt->chi_len) {
 		if (matches_path_start(path, rt->children[i].path)) {
@@ -584,7 +584,7 @@ void restore_delete_node_if_needed(repotree *rt, revision *revisions, node *n) {
 }
 
 void add_dependency(node *master, node *slave) {
-	if ((slave->deps = (node**)realloc(slave->deps, (slave->dep_len + 1) * sizeof(node*))) == NULL) {
+	if ((slave->deps = (node **)realloc(slave->deps, (slave->dep_len + 1) * sizeof(node *))) == NULL) {
 		exit_with_error("realloc failed", 2);
 	}
 	slave->deps[slave->dep_len] = master;
@@ -713,7 +713,7 @@ void add_event(repotree *rt, node *n) { //, char *str, int rev_len) {
 				if (n->action != ADD) {
 					add_dependency(rt->children[i].map[rt->children[i].map_len - 1], n);
 				}
-				if ((rt->children[i].map = (node**)realloc(rt->children[i].map, (rt->children[i].map_len + 1) * sizeof(node*))) == NULL) {
+				if ((rt->children[i].map = (node **)realloc(rt->children[i].map, (rt->children[i].map_len + 1) * sizeof(node *))) == NULL) {
 					exit_with_error("realloc failed", 2);
 				}
 				rt->children[i].map[rt->children[i].map_len] = n;
@@ -723,13 +723,13 @@ void add_event(repotree *rt, node *n) { //, char *str, int rev_len) {
 		}
 	}
 	// New path - add it to tree.
-	if ((rt->children = (repotree*)realloc(rt->children, (rt->chi_len + 1) * sizeof(repotree))) == NULL) {
+	if ((rt->children = (repotree *)realloc(rt->children, (rt->chi_len + 1) * sizeof(repotree))) == NULL) {
 		exit_with_error("realloc failed", 2);
 	}
 	rt->children[rt->chi_len].path = n->path;
 	rt->children[rt->chi_len].children = NULL;
 	rt->children[rt->chi_len].chi_len = 0;
-	if ((rt->children[rt->chi_len].map = (node**)malloc(sizeof(node*))) == NULL) {
+	if ((rt->children[rt->chi_len].map = (node **)malloc(sizeof(node *))) == NULL) {
 		exit_with_error("malloc failed", 2);
 	}
 	rt->children[rt->chi_len].map[0] = n;
@@ -739,7 +739,7 @@ void add_event(repotree *rt, node *n) { //, char *str, int rev_len) {
 
 // Returns a list of node pointers present in a specific part of the tree at a specific revision.
 // The number of nodes in the list will be "returned" through the "size" pointer.
-node** get_relevant_nodes_at_revision(repotree *rt, int rev, int wanted_only, int *size) {
+node **get_relevant_nodes_at_revision(repotree *rt, int rev, int wanted_only, int *size) {
 	int i, j, ch_size;
 	int self_size = 0;
 	node **nptr, **nptr2;
@@ -754,7 +754,7 @@ node** get_relevant_nodes_at_revision(repotree *rt, int rev, int wanted_only, in
 		*size = 0;
 		return NULL;
 	}
-	if ((nptr = (node**)malloc(self_size * sizeof(node*))) == NULL) {
+	if ((nptr = (node **)malloc(self_size * sizeof(node *))) == NULL) {
 		exit_with_error("malloc failed", 2);
 	}
 	self_size = 0;
@@ -770,7 +770,7 @@ node** get_relevant_nodes_at_revision(repotree *rt, int rev, int wanted_only, in
 		if (n && n->action != DELETE) {
 			nptr2 = get_relevant_nodes_at_revision(&rt->children[i], rev, wanted_only, &ch_size);
 			if (nptr2) {
-				if ((nptr = (node**)realloc(nptr, (ch_size + self_size) * sizeof(node*))) == NULL) {
+				if ((nptr = (node **)realloc(nptr, (ch_size + self_size) * sizeof(node *))) == NULL) {
 					exit_with_error("realloc failed", 2);
 				}
 				for (j = 0; j < ch_size; ++j) {
@@ -793,11 +793,11 @@ node** get_relevant_nodes_at_revision(repotree *rt, int rev, int wanted_only, in
 
 // Takes a string where newlines have been replaced with NULL chars.
 // "Returns" the size of the data through the int pointer.
-mergedata* add_mergedata(char *minfo, int *size) {
+mergedata *add_mergedata(char *minfo, int *size) {
 	mergedata *md;
 	int i = 0;
 	int len, j;
-	if ((md = (mergedata*)malloc(sizeof(mergedata))) == NULL) {
+	if ((md = (mergedata *)malloc(sizeof(mergedata))) == NULL) {
 		exit_with_error("malloc failed", 2);
 	}
 	md->size = 0;
@@ -806,13 +806,13 @@ mergedata* add_mergedata(char *minfo, int *size) {
 	md->to = NULL;
 	while (minfo[i] == '/') {
 		len = strlen(&minfo[i]);
-		if ((md->path = (char**)realloc(md->path, (md->size + 1) * sizeof(char*))) == NULL) {
+		if ((md->path = (char **)realloc(md->path, (md->size + 1) * sizeof(char *))) == NULL) {
 			exit_with_error("realloc failed", 2);
 		}
-		if ((md->from = (int*)realloc(md->from, (md->size + 1) * sizeof(int))) == NULL) {
+		if ((md->from = (int *)realloc(md->from, (md->size + 1) * sizeof(int))) == NULL) {
 			exit_with_error("realloc failed", 2);
 		}
-		if ((md->to = (int*)realloc(md->to, (md->size + 1) * sizeof(int))) == NULL) {
+		if ((md->to = (int *)realloc(md->to, (md->size + 1) * sizeof(int))) == NULL) {
 			exit_with_error("realloc failed", 2);
 		}
 		j = i + len - 1;
@@ -845,7 +845,7 @@ mergedata* add_mergedata(char *minfo, int *size) {
 	return md;
 }
 
-mergeinfo* create_mergeinfo(mergeinfo *mi, char *minfo, int rev, int nod, int *mi_len) {
+mergeinfo *create_mergeinfo(mergeinfo *mi, char *minfo, int rev, int nod, int *mi_len) {
 	int orig;
 	int i = 0;
 	// Parse past newlines turned NULL, and "K 13" line...
@@ -866,7 +866,7 @@ mergeinfo* create_mergeinfo(mergeinfo *mi, char *minfo, int rev, int nod, int *m
 		++i;
 	}
 	++i;
-	if ((mi = (mergeinfo*)realloc(mi, (*mi_len + 1) * sizeof(mergeinfo))) == NULL) {
+	if ((mi = (mergeinfo *)realloc(mi, (*mi_len + 1) * sizeof(mergeinfo))) == NULL) {
 		exit_with_error("realloc failed", 2);
 	}
 	mi[*mi_len].data = add_mergedata(&minfo[i], &orig);
@@ -908,12 +908,12 @@ void write_mergeinfo(FILE *outfile, mergedata *data, revision *revisions, char *
 	for (i = 0; i < data->size; ++i) {
 		size += get_mergerow_size(data, revisions, redefined_root, i);
 	}
-	v_size = size - 1; // The last (first?) newline doesn't count towards value length.
+	v_size = size - 1;           // The last (first?) newline doesn't count towards value length.
 	size += num_len(v_size) + 3; // "V XXX\n"
-	size += 30; // "\nK 13\nsvn:mergeinfo\n"  ... "\nPROPS-END"
+	size += 30;                  // "\nK 13\nsvn:mergeinfo\n"  ... "\nPROPS-END"
 	diff = orig_size - size;
 	fprintf(outfile, "Prop-content-length: %d\nContent-length: %d\n\nK 13\nsvn:mergeinfo\nV %d\n",
-					(int)pcon_len - diff, (int)con_len - diff, v_size);
+			(int)pcon_len - diff, (int)con_len - diff, v_size);
 	for (i = 0; i < data->size; ++i) {
 		to = get_new_revision_number(revisions, data->to[i]);
 		from = get_new_revision_number(revisions, data->from[i]);
@@ -943,7 +943,7 @@ void write_mergeinfo(FILE *outfile, mergedata *data, revision *revisions, char *
 
 int main(int argc, char **argv) {
 	// Misc temporary variables
- 	int i, j, k, ch, want_by_default, new_number, empty, temp_int, is_dir, should_do, maxp_len;
+	int i, j, k, ch, want_by_default, new_number, empty, temp_int, is_dir, should_do, maxp_len;
 	off_t offset, con_len, pcon_len;
 	time_t rawtime;
 	struct tm *ptm;
@@ -954,7 +954,7 @@ int main(int argc, char **argv) {
 	int query = 0;
 	int add_delete = 0;
 
-	// Variables to help analyze user input 
+	// Variables to help analyze user input
 	int in = 0;
 	int out = 0;
 	int incl = 0;
@@ -986,7 +986,7 @@ int main(int argc, char **argv) {
 
 	// File reading & writing variables
 	char *current_line;
-	if ((current_line = (char*)calloc(cur_max, 1)) == NULL) {
+	if ((current_line = (char *)calloc(cur_max, 1)) == NULL) {
 		exit_with_error("calloc failed", 2);
 	}
 	int reading_node = 0;
@@ -1000,7 +1000,7 @@ int main(int argc, char **argv) {
 	int rev_max = 10;
 	int rev = -1;
 	revision *revisions;
-	if ((revisions = (revision*)malloc(rev_max * sizeof(revision))) == NULL) {
+	if ((revisions = (revision *)malloc(rev_max * sizeof(revision))) == NULL) {
 		exit_with_error("malloc failed", 2);
 	}
 	int nod_len = -1;
@@ -1020,14 +1020,14 @@ int main(int argc, char **argv) {
 	int mi_max = 0;
 	int mi_len = 0;
 	int act_mi = -1;
-	
+
 	/*******************************************************************************
 	 *
 	 * Parameter analysis
 	 *
 	 *******************************************************************************/
 
-	for (i = 1 ; i < argc ; ++i) {
+	for (i = 1; i < argc; ++i) {
 		if (starts_with(argv[i], "-")) {
 			if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
 				free(current_line);
@@ -1065,19 +1065,19 @@ int main(int argc, char **argv) {
 			}
 		}
 		else if (in && infile == NULL) {
-			infile = fopen(argv[i],"rb");
+			infile = fopen(argv[i], "rb");
 			if (infile == NULL) {
-				exit_with_error(strcat(argv[i], " can not be opened as infile") , 3);
+				exit_with_error(strcat(argv[i], " can not be opened as infile"), 3);
 			}
 		}
 		else if (out && outfile == NULL) {
-			outfile = fopen(argv[i],"wb");
+			outfile = fopen(argv[i], "wb");
 			if (outfile == NULL) {
-				exit_with_error(strcat(argv[i], " can not be opened as outfile") , 3);
+				exit_with_error(strcat(argv[i], " can not be opened as outfile"), 3);
 			}
 		}
 		else if (incl) {
-			if ((include = (char**)realloc(include, (inc_len + 1) * sizeof(char*))) == NULL) {
+			if ((include = (char **)realloc(include, (inc_len + 1) * sizeof(char *))) == NULL) {
 				exit_with_error("realloc failed", 2);
 			}
 			// Allow the user to escape a directory in the repository root, that starts with a
@@ -1088,10 +1088,10 @@ int main(int argc, char **argv) {
 			else {
 				include[inc_len] = argv[i];
 			}
-			++inc_len;			
+			++inc_len;
 		}
 		else if (excl) {
-			if ((exclude = (char**)realloc(exclude, (exc_len + 1) * sizeof(char*))) == NULL) {
+			if ((exclude = (char **)realloc(exclude, (exc_len + 1) * sizeof(char *))) == NULL) {
 				exit_with_error("realloc failed", 2);
 			}
 			if (starts_with(argv[i], "/")) {
@@ -1233,11 +1233,11 @@ int main(int argc, char **argv) {
 				++nod_len;
 				++revisions[rev_len].size;
 				if (nod_len == 0) {
-					if ((current_node = (node*)malloc(sizeof(node))) == NULL) {
+					if ((current_node = (node *)malloc(sizeof(node))) == NULL) {
 						exit_with_error("malloc failed", 2);
 					}
 				}
-				else if ((current_node = (node*)realloc(current_node, (nod_len + 1) * sizeof(node))) == NULL) {
+				else if ((current_node = (node *)realloc(current_node, (nod_len + 1) * sizeof(node))) == NULL) {
 					exit_with_error("realloc failed", 2);
 				}
 				init_new_node(&current_node[nod_len]);
@@ -1247,7 +1247,7 @@ int main(int argc, char **argv) {
 				current_node[nod_len].revision = rev_len;
 				reading_node = 1;
 			}
-			else if (starts_with(current_line,"Revision-number: ")) {
+			else if (starts_with(current_line, "Revision-number: ")) {
 				if (rev_len >= 0) {
 					revisions[rev_len].nodes = current_node;
 				}
@@ -1255,7 +1255,7 @@ int main(int argc, char **argv) {
 				print_progress(messages, "Reading revision", rev_len);
 				if (rev_len == rev_max) {
 					rev_max += INCREMENT;
-					if ((revisions = (revision*)realloc(revisions, (rev_max * sizeof(revision)))) == NULL) {
+					if ((revisions = (revision *)realloc(revisions, (rev_max * sizeof(revision)))) == NULL) {
 						exit_with_error("realloc failed", 2);
 					}
 				}
@@ -1269,11 +1269,11 @@ int main(int argc, char **argv) {
 			}
 			current_line[0] = '\0';
 			cur_len = 0;
-		} // End of "if (ch != NEWLINE)" 
+		} // End of "if (ch != NEWLINE)"
 		else {
 			if (cur_len == cur_max - 1) {
 				cur_max += INCREMENT;
-				if ((current_line = (char*)realloc(current_line, cur_max)) == NULL) {
+				if ((current_line = (char *)realloc(current_line, cur_max)) == NULL) {
 					exit_with_error("realloc failed", 2);
 				}
 			}
@@ -1281,7 +1281,7 @@ int main(int argc, char **argv) {
 			++cur_len;
 			current_line[cur_len] = '\0';
 		}
-	 } // End of "while ((ch = fgetc(infile)) != EOF)"
+	} // End of "while ((ch = fgetc(infile)) != EOF)"
 	if (rev_len >= 0) {
 		revisions[rev_len].nodes = current_node;
 	}
@@ -1299,7 +1299,7 @@ int main(int argc, char **argv) {
 	if (mi_len > 0) {
 		act_mi = 0;
 	}
-	
+
 	for (i = 0; i < rev_len; ++i) {
 		print_progress(messages, "Analyzing revision", i);
 		merge = -1;
@@ -1335,11 +1335,11 @@ int main(int argc, char **argv) {
 				if (temp_int == 0) {
 					continue;
 				}
-				if ((revisions[i].fakes = (node**)realloc(revisions[i].fakes, (revisions[i].fake_size + temp_int) * sizeof(node*))) == NULL) {
+				if ((revisions[i].fakes = (node **)realloc(revisions[i].fakes, (revisions[i].fake_size + temp_int) * sizeof(node *))) == NULL) {
 					exit_with_error("realloc failed", 2);
 				}
 				for (k = 0; k < temp_int; ++k) {
-					if ((current_node = (node*)malloc(sizeof(node))) == NULL) {
+					if ((current_node = (node *)malloc(sizeof(node))) == NULL) {
 						exit_with_error("malloc failed", 2);
 					}
 					init_new_node(current_node);
@@ -1376,7 +1376,7 @@ int main(int argc, char **argv) {
 
 	// Include strategy
 	if (include) {
-		if ((inc_slash = (char**)malloc(inc_len * sizeof(char*))) == NULL) {
+		if ((inc_slash = (char **)malloc(inc_len * sizeof(char *))) == NULL) {
 			exit_with_error("malloc failed", 2);
 		}
 		for (i = 0; i < inc_len; ++i) {
@@ -1397,7 +1397,7 @@ int main(int argc, char **argv) {
 	}
 	// Exclude strategy
 	else {
-		if ((exc_slash = (char**)malloc(exc_len * sizeof(char*))) == NULL) {
+		if ((exc_slash = (char **)malloc(exc_len * sizeof(char *))) == NULL) {
 			exit_with_error("malloc failed", 2);
 		}
 		for (i = 0; i < exc_len; ++i) {
@@ -1425,13 +1425,13 @@ int main(int argc, char **argv) {
 	 * If user wants to question the reason for files being included, we do that now.
 	 *
 	 ***********************************************************************************/
-	
+
 	if (query) {
 		maxp_len = get_max_path_size(&rt) + 10;
 		why_file = str_malloc(maxp_len);
 		do {
 			printf("\nPlease enter the full (case sensitive) path name you wish to inquire about\n\"/quit\" will exit program, and \"/write\" proceed with writing the outfile:\n");
-			fgets (why_file, maxp_len, stdin);
+			fgets(why_file, maxp_len, stdin);
 			i = 0;
 			while (why_file[i] != NEWLINE && why_file[i] != '\0') {
 				++i;
@@ -1452,7 +1452,7 @@ int main(int argc, char **argv) {
 					if (revisions[i].nodes[j].wanted) {
 						if (!node_ptr) {
 							if (strcmp(revisions[i].nodes[j].path, why_file) == 0) {
-								if ((node_ptr = (node**)malloc(sizeof(node*))) == NULL) {
+								if ((node_ptr = (node **)malloc(sizeof(node *))) == NULL) {
 									exit_with_error("malloc failed", 2);
 								}
 								++temp_int;
@@ -1463,7 +1463,7 @@ int main(int argc, char **argv) {
 							for (k = 0; k < revisions[i].nodes[j].dep_len; ++k) {
 								if (revisions[i].nodes[j].deps[k] == node_ptr[temp_int]) {
 									++temp_int;
-									if ((node_ptr = (node**)realloc(node_ptr, (temp_int + 1) * sizeof(node*))) == NULL) {
+									if ((node_ptr = (node **)realloc(node_ptr, (temp_int + 1) * sizeof(node *))) == NULL) {
 										exit_with_error("realloc failed", 2);
 									}
 									node_ptr[temp_int] = &revisions[i].nodes[j];
@@ -1478,7 +1478,7 @@ int main(int argc, char **argv) {
 						for (k = 0; k < revisions[i].fakes[j]->dep_len; ++k) {
 							if (node_ptr && revisions[i].fakes[j]->deps[k] == node_ptr[temp_int]) {
 								++temp_int;
-								if ((node_ptr = (node**)realloc(node_ptr, (temp_int + 1) * sizeof(node*))) == NULL) {
+								if ((node_ptr = (node **)realloc(node_ptr, (temp_int + 1) * sizeof(node *))) == NULL) {
 									exit_with_error("realloc failed", 2);
 								}
 								node_ptr[temp_int] = revisions[i].fakes[j];
@@ -1490,9 +1490,9 @@ int main(int argc, char **argv) {
 			}
 			print_why(node_ptr, include, inc_slash, exclude, exc_slash, why_file, temp_int, inc_len, exc_len);
 			free(node_ptr);
-		}	while (1);
+		} while (1);
 	}
-	
+
 	// Restore wanted delete nodes
 	for (i = 0; i < rev_len; ++i) {
 		for (j = 0; j < revisions[i].size; ++j) {
@@ -1560,7 +1560,7 @@ int main(int argc, char **argv) {
 							temp_str[k] = '\0';
 							if (strcmp(temp_str, revisions[i].nodes[j].path) == 0) {
 								if (revisions[i].nodes[j].wanted) {
-									if ((redef_rollback = (node**)realloc(redef_rollback, (temp_int + 1) * sizeof(node*))) == NULL) {
+									if ((redef_rollback = (node **)realloc(redef_rollback, (temp_int + 1) * sizeof(node *))) == NULL) {
 										exit_with_error("realloc failed", 2);
 									}
 									redef_rollback[temp_int] = &revisions[i].nodes[j];
@@ -1584,13 +1584,13 @@ int main(int argc, char **argv) {
 		}
 		free(redef_rollback);
 	}
-	
+
 	/***********************************************************************************
 	 *
 	 * Write the outfile
 	 *
 	 ***********************************************************************************/
- write_out:
+write_out:
 	if (mi_len > 0) {
 		act_mi = 0;
 	}
@@ -1613,11 +1613,11 @@ int main(int argc, char **argv) {
 					fprintf(outfile, "Node-copyfrom-rev: %d\n", revisions[temp_int].number);
 					toggle = 1;
 				}
-				else if(writing && redefined_root && starts_with(current_line, "Node-copyfrom-path: ")) {
+				else if (writing && redefined_root && starts_with(current_line, "Node-copyfrom-path: ")) {
 					temp_str = reduce_path(redefined_root, &current_line[20]);
 					fprintf(outfile, "Node-copyfrom-path: %s\n", temp_str);
 					toggle = 1;
-					free(temp_str);	
+					free(temp_str);
 				}
 				else if (act_mi >= 0 && mi[act_mi].revision == rev && mi[act_mi].node == nod && starts_with(current_line, "Prop-content-length: ")) {
 					pcon_len = (off_t)atol(&current_line[21]);
@@ -1630,7 +1630,8 @@ int main(int argc, char **argv) {
 							write_mergeinfo(outfile, mi[act_mi].data, revisions, redefined_root, mi[act_mi].orig_size, con_len, pcon_len);
 							// -10 is because of the "PROPS-END\n" that is included in orig_size.
 							fseeko(infile, mi[act_mi].orig_size - 10, SEEK_CUR);
-							while (fgetc(infile) != NEWLINE) {}
+							while (fgetc(infile) != NEWLINE) {
+							}
 							++act_mi;
 							if (act_mi == mi_len) {
 								act_mi = -1;
@@ -1739,7 +1740,7 @@ int main(int argc, char **argv) {
 						free(temp_str);
 					}
 					if (should_do) {
-						if ((to_delete = (char**)realloc(to_delete, (del_len + 1) * sizeof(char*))) == NULL) {
+						if ((to_delete = (char **)realloc(to_delete, (del_len + 1) * sizeof(char *))) == NULL) {
 							exit_with_error("realloc failed", 2);
 						}
 						to_delete[del_len] = node_ptr[i]->path;
@@ -1762,7 +1763,7 @@ int main(int argc, char **argv) {
 						free(temp_str);
 					}
 					if (should_do) {
-						if ((to_delete = (char**)realloc(to_delete, (del_len + 1) * sizeof(char*))) == NULL) {
+						if ((to_delete = (char **)realloc(to_delete, (del_len + 1) * sizeof(char *))) == NULL) {
 							exit_with_error("realloc failed", 2);
 						}
 						to_delete[del_len] = node_ptr[i]->path;
@@ -1800,10 +1801,10 @@ int main(int argc, char **argv) {
 			fprintf(outfile, "Node-action: delete\n\n\n");
 		}
 	}
-	
+
 	fprintf(messages, "\nAll done.\n");
 	// Clean everything up
- cleanup:
+cleanup:
 	fclose(infile);
 	if (to_file) {
 		fclose(outfile);

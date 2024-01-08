@@ -18,7 +18,7 @@ Use with "dumpstrip --infile foo.dump --outfile bar.dump"
 #define NEWLINE 10
 
 void exit_with_error(char *message, int exit_code) {
-	fprintf(stderr,"ERROR: %s\n", message);
+	fprintf(stderr, "ERROR: %s\n", message);
 	exit(exit_code);
 }
 
@@ -46,26 +46,26 @@ int main(int argc, char **argv) {
 	FILE *infile = NULL;
 	FILE *outfile = NULL;
 	char *current_line;
-	if ((current_line = (char*)calloc(cur_max, 1)) == NULL) {
+	if ((current_line = (char *)calloc(cur_max, 1)) == NULL) {
 		exit_with_error("calloc failed", 2);
 	}
 
 	// Analyze the given parameters
-	for (i = 1 ; i < argc ; ++i) {
+	for (i = 1; i < argc; ++i) {
 		if (starts_with(argv[i], "-")) {
 			in = (!strcmp(argv[i], "--infile") || !strcmp(argv[i], "-i"));
 			out = (!strcmp(argv[i], "--outfile") || !strcmp(argv[i], "-o"));
 		}
 		else if (in && infile == NULL) {
-			infile = fopen(argv[i],"rb");
+			infile = fopen(argv[i], "rb");
 			if (infile == NULL) {
-				exit_with_error(strcat(argv[i], " can not be opened as infile") , 3);
+				exit_with_error(strcat(argv[i], " can not be opened as infile"), 3);
 			}
 		}
 		else if (out && outfile == NULL) {
-			outfile = fopen(argv[i],"wb");
+			outfile = fopen(argv[i], "wb");
 			if (outfile == NULL) {
-				exit_with_error(strcat(argv[i], " can not be opened as outfile") , 3);
+				exit_with_error(strcat(argv[i], " can not be opened as outfile"), 3);
 			}
 		}
 		else {
@@ -103,7 +103,7 @@ int main(int argc, char **argv) {
 		else {
 			if (cur_len == cur_max - 1) {
 				cur_max += INCREMENT;
-				if ((current_line = (char*)realloc(current_line, cur_max)) == NULL) {
+				if ((current_line = (char *)realloc(current_line, cur_max)) == NULL) {
 					exit_with_error("realloc failed", 2);
 				}
 			}
